@@ -2020,7 +2020,7 @@ LrWpanMac::GetPendingAddrFields()
 }
 
 void
-LrWpanMac::SetCsmaCa(Ptr<LrWpanCsmaCa> csmaCa)
+LrWpanMac::SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaCa)
 {
     m_csmaCa = csmaCa;
 }
@@ -3972,6 +3972,19 @@ LrWpanMac::IsTxAckReq()
     m_txPkt->PeekHeader(macHdr);
 
     return macHdr.IsAckReq();
+}
+
+void
+LrWpanMac::setPriority(uint8_t priority)
+{
+    NS_ASSERT(priority >= 0 && priority <= 7);
+    m_priority = priority;
+}
+
+uint8_t
+LrWpanMac::getPriority()
+{
+    return m_priority;
 }
 
 } // namespace lrwpan

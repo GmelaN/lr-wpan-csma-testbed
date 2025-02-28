@@ -26,7 +26,7 @@ namespace lrwpan
 {
 
 class LrWpanPhy;
-class LrWpanCsmaCa;
+class LrWpanCsmaCaCommon;
 
 /**
  * \ingroup lr-wpan
@@ -84,7 +84,7 @@ class LrWpanNetDevice : public NetDevice
      *
      * \param csmaca the CSMA/CA implementation to be used
      */
-    void SetCsmaCa(Ptr<LrWpanCsmaCa> csmaca);
+    void SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaca);
 
     /**
      * Set the channel to which the NetDevice, and therefore the PHY, should be
@@ -113,7 +113,7 @@ class LrWpanNetDevice : public NetDevice
      *
      * \return the CSMA/CA implementation object
      */
-    Ptr<LrWpanCsmaCa> GetCsmaCa() const;
+    Ptr<LrWpanCsmaCaCommon> GetCsmaCa() const;
 
     // From class NetDevice
     void SetIfIndex(const uint32_t index) override;
@@ -261,7 +261,7 @@ class LrWpanNetDevice : public NetDevice
     /**
      * The CSMA/CA implementation for this NetDevice.
      */
-    Ptr<LrWpanCsmaCa> m_csmaca;
+    Ptr<LrWpanCsmaCaCommon> m_csmaca;
 
     /**
      * The node associated with this NetDevice.

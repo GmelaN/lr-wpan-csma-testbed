@@ -33,7 +33,7 @@ class Packet;
 namespace lrwpan
 {
 
-class LrWpanCsmaCa;
+class LrWpanCsmaCaCommon;
 
 /**
  * \defgroup lr-wpan LR-WPAN models
@@ -261,7 +261,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \param csmaCa the CSMA/CA implementation
      */
-    void SetCsmaCa(Ptr<LrWpanCsmaCa> csmaCa);
+    void SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaCa);
 
     /**
      * Set the underlying PHY for the MAC.
@@ -731,12 +731,23 @@ class LrWpanMac : public LrWpanMacBase
     // NS_DEPRECATED() - tag for future removal
     typedef void (*StateTracedCallback)(MacState oldState, MacState newState);
 
+    /**
+     * Get / Set node priority
+     */
+    uint8_t getPriority();
+    void setPriority(uint8_t priority);
+
   protected:
     // Inherited from Object.
     void DoInitialize() override;
     void DoDispose() override;
 
   private:
+    /**
+     * Node priority
+     */
+    uint8_t m_priority;
+
     /**
      * Helper structure for managing transmission queue elements.
      */
@@ -1139,7 +1150,7 @@ class LrWpanMac : public LrWpanMacBase
     /**
      * The CSMA/CA implementation used by this MAC.
      */
-    Ptr<LrWpanCsmaCa> m_csmaCa;
+    Ptr<LrWpanCsmaCaCommon> m_csmaCa;
 
     /**
      * The current state of the MAC layer.

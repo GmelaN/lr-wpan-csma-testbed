@@ -10,6 +10,7 @@
  */
 #include "lr-wpan-net-device.h"
 
+#include "lr-wpan-csmaca-common.h"
 #include "lr-wpan-csmaca.h"
 #include "lr-wpan-error-model.h"
 #include "lr-wpan-phy.h"
@@ -139,7 +140,7 @@ LrWpanNetDevice::CompleteConfig()
         MakeCallback(&LrWpanMac::PlmeSetAttributeConfirm, m_mac));
 
     m_csmaca->SetLrWpanMacStateCallback(MakeCallback(&LrWpanMac::SetLrWpanMacState, m_mac));
-    m_phy->SetPlmeCcaConfirmCallback(MakeCallback(&LrWpanCsmaCa::PlmeCcaConfirm, m_csmaca));
+    m_phy->SetPlmeCcaConfirmCallback(MakeCallback(&LrWpanCsmaCaCommon::PlmeCcaConfirm, m_csmaca));
     m_configComplete = true;
 }
 
@@ -160,7 +161,7 @@ LrWpanNetDevice::SetPhy(Ptr<LrWpanPhy> phy)
 }
 
 void
-LrWpanNetDevice::SetCsmaCa(Ptr<LrWpanCsmaCa> csmaca)
+LrWpanNetDevice::SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaca)
 {
     NS_LOG_FUNCTION(this);
     m_csmaca = csmaca;
@@ -190,7 +191,7 @@ LrWpanNetDevice::GetPhy() const
     return m_phy;
 }
 
-Ptr<LrWpanCsmaCa>
+Ptr<LrWpanCsmaCaCommon>
 LrWpanNetDevice::GetCsmaCa() const
 {
     NS_LOG_FUNCTION(this);
