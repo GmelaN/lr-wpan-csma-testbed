@@ -230,12 +230,16 @@ TestRxOffWhenIdleAfterCsmaFailure::DoRun()
     dev1->GetMac()->SetRxOnWhenIdle(false);
 
     // set CSMA min beacon exponent (BE) to 0 to make all backoff delays == to 0 secs.
-    dev0->GetCsmaCa()->SetMacMinBE(0);
-    dev2->GetCsmaCa()->SetMacMinBE(0);
+    Ptr<LrWpanCsmaCa> csma = DynamicCast<LrWpanCsmaCa>(dev0->GetCsmaCa());
+    csma->SetMacMinBE(0);
+    csma = DynamicCast<LrWpanCsmaCa>(dev2->GetCsmaCa());
+    csma->SetMacMinBE(0);
 
     // Only try once to do a backoff period before giving up.
-    dev0->GetCsmaCa()->SetMacMaxCSMABackoffs(0);
-    dev2->GetCsmaCa()->SetMacMaxCSMABackoffs(0);
+    csma = DynamicCast<LrWpanCsmaCa>(dev0->GetCsmaCa());
+    csma->SetMacMaxCSMABackoffs(0);
+    csma = DynamicCast<LrWpanCsmaCa>(dev2->GetCsmaCa());
+    csma->SetMacMaxCSMABackoffs(0);
 
     // The below should trigger two callbacks when end-to-end data is working
     // 1) DataConfirm callback is called

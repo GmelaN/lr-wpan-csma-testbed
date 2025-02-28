@@ -366,8 +366,10 @@ LrWpanDataIfsTestCase::DoRun()
     // This demonstrates that a device can start receiving a frame even during an IFS.
 
     // Makes the backoff delay period = 0 in the CSMA/CA
-    dev0->GetCsmaCa()->SetMacMinBE(0);
-    dev1->GetCsmaCa()->SetMacMinBE(0);
+    Ptr<LrWpanCsmaCa> csma = DynamicCast<LrWpanCsmaCa>(dev0->GetCsmaCa());
+    csma->SetMacMinBE(0);
+    csma = DynamicCast<LrWpanCsmaCa>(dev1->GetCsmaCa());
+    csma->SetMacMinBE(0);
 
     p0 = Create<Packet>(50); // 50 bytes of dummy data
     params.m_dstPanId = 0;

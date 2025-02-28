@@ -282,8 +282,10 @@ LrWpanCcaTestCase::DoRun()
         MakeBoundCallback(&LrWpanCcaTestCase::PlmeCcaConfirm, this, dev1));
 
     // Start sending without backoff, if the channel is free.
-    dev0->GetCsmaCa()->SetMacMinBE(0);
-    dev2->GetCsmaCa()->SetMacMinBE(0);
+    Ptr<LrWpanCsmaCa> csma = DynamicCast<LrWpanCsmaCa>(dev0->GetCsmaCa());
+    csma->SetMacMinBE(0);
+    csma = DynamicCast<LrWpanCsmaCa>(dev2->GetCsmaCa());
+    csma->SetMacMinBE(0);
 
     // Connect trace sources.
     dev0->GetPhy()->TraceConnectWithoutContext(
@@ -490,9 +492,12 @@ CCAVulnerableWindowTest::DoRun()
 
     // Do a CCA without a previous RandomBackoffDelay
     // This is set to make the test reprodusable.
-    dev0->GetCsmaCa()->SetMacMinBE(0);
-    dev1->GetCsmaCa()->SetMacMinBE(0);
-    dev2->GetCsmaCa()->SetMacMinBE(0);
+    Ptr<LrWpanCsmaCa> csma = DynamicCast<LrWpanCsmaCa>(dev0->GetCsmaCa());
+    csma->SetMacMinBE(0);
+    csma = DynamicCast<LrWpanCsmaCa>(dev1->GetCsmaCa());
+    csma->SetMacMinBE(0);
+    csma = DynamicCast<LrWpanCsmaCa>(dev2->GetCsmaCa());
+    csma->SetMacMinBE(0);
 
     // Callback hooks to MAC layer
     dev0->GetMac()->SetMcpsDataIndicationCallback(

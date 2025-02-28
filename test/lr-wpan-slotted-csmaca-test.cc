@@ -215,7 +215,8 @@ LrWpanSlottedCsmacaTestCase::DoRun()
 
     LrWpanMacTransCostCallback cb2;
     cb2 = MakeBoundCallback(&LrWpanSlottedCsmacaTestCase::TransactionCost, this, dev1);
-    dev1->GetCsmaCa()->SetLrWpanMacTransCostCallback(cb2);
+    Ptr<LrWpanCsmaCa> csma = DynamicCast<LrWpanCsmaCa>(dev1->GetCsmaCa());
+    csma->SetLrWpanMacTransCostCallback(cb2);
 
     McpsDataIndicationCallback cb5;
     cb5 = MakeBoundCallback(&LrWpanSlottedCsmacaTestCase::DataIndicationCoordinator, this, dev0);
