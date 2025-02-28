@@ -2,7 +2,6 @@ build_lib(
   LIBNAME lr-wpan
   SOURCE_FILES
     helper/lr-wpan-helper.cc
-    model/lr-wpan-csmaca.cc
     model/lr-wpan-error-model.cc
     model/lr-wpan-fields.cc
     model/lr-wpan-interference-helper.cc
@@ -17,12 +16,13 @@ build_lib(
     model/lr-wpan-spectrum-signal-parameters.cc
     model/lr-wpan-spectrum-value-helper.cc
 
+    model/lr-wpan-csmaca.cc
     model/lr-wpan-csmaca-noba.cc
+    model/lr-wpan-csmaca-common.cc
 
   HEADER_FILES
     helper/lr-wpan-helper.h
     model/lr-wpan-constants.h
-    model/lr-wpan-csmaca.h
     model/lr-wpan-error-model.h
     model/lr-wpan-fields.h
     model/lr-wpan-interference-helper.h
@@ -37,7 +37,9 @@ build_lib(
     model/lr-wpan-spectrum-signal-parameters.h
     model/lr-wpan-spectrum-value-helper.h
 
+    model/lr-wpan-csmaca.h
     model/lr-wpan-csmaca-noba.h
+    model/lr-wpan-csmaca-common.h
 
 
   LIBRARIES_TO_LINK ${libspectrum}
