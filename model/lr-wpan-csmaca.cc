@@ -36,7 +36,7 @@ LrWpanCsmaCa::GetTypeId()
 {
     static TypeId tid = TypeId("ns3::lrwpan::LrWpanCsmaCa")
                             .AddDeprecatedName("ns3::LrWpanCsmaCa")
-                            .SetParent<Object>()
+                            .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
                             .AddConstructor<LrWpanCsmaCa>();
     return tid;
@@ -82,7 +82,7 @@ LrWpanCsmaCa::SetMac(Ptr<LrWpanMac> mac)
 }
 
 Ptr<LrWpanMac>
-LrWpanCsmaCa::GetMac() const
+LrWpanCsmaCa::GetMac()
 {
     return m_mac;
 }
@@ -100,13 +100,13 @@ LrWpanCsmaCa::SetUnSlottedCsmaCa()
 }
 
 bool
-LrWpanCsmaCa::IsSlottedCsmaCa() const
+LrWpanCsmaCa::IsSlottedCsmaCa()
 {
     return m_isSlotted;
 }
 
 bool
-LrWpanCsmaCa::IsUnSlottedCsmaCa() const
+LrWpanCsmaCa::IsUnSlottedCsmaCa()
 {
     return !m_isSlotted;
 }
@@ -551,13 +551,13 @@ LrWpanCsmaCa::AssignStreams(int64_t stream)
 }
 
 uint8_t
-LrWpanCsmaCa::GetNB() const
+LrWpanCsmaCa::GetNB()
 {
     return m_NB;
 }
 
 bool
-LrWpanCsmaCa::GetBatteryLifeExtension() const
+LrWpanCsmaCa::GetBatteryLifeExtension()
 {
     return m_macBattLifeExt;
 }
