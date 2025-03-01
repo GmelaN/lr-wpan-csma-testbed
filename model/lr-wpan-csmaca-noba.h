@@ -10,8 +10,7 @@
 #ifndef LR_WPAN_CSMACA_NOBA_H
 #define LR_WPAN_CSMACA_NOBA_H
 
-// SW_7 ~ SW_0
-#define SW_COUNT 8
+#define TP_COUNT 8
 
 #include "lr-wpan-mac.h"
 #include "lr-wpan-csmaca-common.h"
@@ -51,8 +50,13 @@ namespace lrwpan
  */
 class LrWpanCsmaCaNoba : public LrWpanCsmaCaCommon
 {
-  public:
+  static uint32_t SW[TP_COUNT]; // each TP
+  static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
+  static uint32_t WL[TP_COUNT]; // each TP
 
+  public:
+     static void InitializeGlobals();
+  
      /**
       * Get the type ID.
       *
@@ -65,7 +69,7 @@ class LrWpanCsmaCaNoba : public LrWpanCsmaCaCommon
     LrWpanCsmaCaNoba();
     ~LrWpanCsmaCaNoba() override;
 
-    LrWpanCsmaCaNoba(uint8_t nodeCount, uint8_t priority);
+    LrWpanCsmaCaNoba(uint8_t priority);
  
      // Delete copy constructor and assignment operator to avoid misuse
      LrWpanCsmaCaNoba(const LrWpanCsmaCaNoba&) = delete;
@@ -248,32 +252,29 @@ class LrWpanCsmaCaNoba : public LrWpanCsmaCaCommon
       return m_TP;
     }
 
+    /**
+     * when ACK timeout occured, modify CW, SW and get backoff counter value
+     */
+    void SetBackoffCounter();
 
   
   private:
     /**
-     * Sliding Window: SW
-     */
-    uint8_t m_SW[SW_COUNT] = {1, };
-
-    /**
-     * number of nodes
-     */
-    uint8_t m_nodeCount;
-
-    /**
-     * Window Limit
-     */
-    const uint8_t m_WL[8] = {8, 16, 24, 32, 40, 48, 56, 64};
-
-    /**
-     * node priority
-     */
-    uint8_t m_priority;
-    /**
      * Traffic Priority
     */
     uint8_t m_TP;
+    /**
+     * Collision Count
+     */
+    uint32_t m_collisions;
+    /**
+     * backoff count
+     */
+    uint32_t m_backoffCount;
+    /**
+     * should we freeze backoff?
+     */
+    bool m_freezeBackoff;
 
     void DoDispose() override;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 jshyeon
+ * Copyright (c) 2025 jshyeon
  *
  * SPDX-License-Identifier: GPL-2.0-only
  *
@@ -28,6 +28,12 @@ namespace lrwpan
 NS_LOG_COMPONENT_DEFINE("LrWpanCsmaCaNoba");
 NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaNoba);
 
+
+uint32_t LrWpanCsmaCaNoba::SW[TP_COUNT]; // each TP
+std::pair<uint32_t, uint32_t> LrWpanCsmaCaNoba::CW[TP_COUNT]; // each TP
+uint32_t LrWpanCsmaCaNoba::WL[TP_COUNT]; // each TP
+
+
 TypeId
 LrWpanCsmaCaNoba::GetTypeId()
 {
@@ -38,23 +44,58 @@ LrWpanCsmaCaNoba::GetTypeId()
                             .AddConstructor<LrWpanCsmaCaNoba>();
     return tid;
 }
-LrWpanCsmaCaNoba::LrWpanCsmaCaNoba(uint8_t nodeCount, uint8_t priority)
+
+void
+LrWpanCsmaCaNoba::InitializeGlobals()
 {
-    m_isSlotted = false;
-    m_NB = 0;
-    m_CW = 2;
+    // TODO: vaildate this logic
+    for(int i = 0; i < TP_COUNT; i++) {
+        LrWpanCsmaCaNoba::SW[i] = 1;
+    }
+    LrWpanCsmaCaNoba::CW[7].first = 1;
+    
+    for(int i = TP_COUNT - 1; i >= 0; i--) {
+        LrWpanCsmaCaNoba::WL[i] = 8 * (8 - i); // 8, 16, 24, 32, 40, 48, 56, 64
+    }
+    
+    for(int i = TP_COUNT - 1; i >= 0; i--) {
+        if(i > 0) {
+            LrWpanCsmaCaNoba::CW[i].second = // CW_max,i
+                std::min(LrWpanCsmaCaNoba::CW[i].first + LrWpanCsmaCaNoba::SW[i], LrWpanCsmaCaNoba::WL[i]);
+            
+            LrWpanCsmaCaNoba::CW[i-1].first = // CW_min,i-1
+                LrWpanCsmaCaNoba::CW[i].second + 1;
+        }
+        else {
+            LrWpanCsmaCaNoba::CW[i].second =
+                std::min(LrWpanCsmaCaNoba::CW[i].first + LrWpanCsmaCaNoba::SW[i], LrWpanCsmaCaNoba::WL[i]);
+        }
+    }
+    return;
+}
+
+
+LrWpanCsmaCaNoba::LrWpanCsmaCaNoba(uint8_t priority)
+{
+    NS_ASSERT(priority >= 0 && priority <= 7);
+
+    LrWpanCsmaCaNoba::InitializeGlobals();
+
+    m_isSlotted = true;
     m_macBattLifeExt = false;
-    m_macMinBE = 3;
-    m_macMaxBE = 5;
-    m_macMaxCSMABackoffs = 4;
+    // m_macMinBE = 3;
+    // m_macMaxBE = 5;
+    // m_macMaxCSMABackoffs = 4;
     m_random = CreateObject<UniformRandomVariable>();
-    m_BE = m_macMinBE;
+    // m_BE = m_macMinBE;
     m_ccaRequestRunning = false;
     m_randomBackoffPeriodsLeft = 0;
     m_coorDest = false;
 
-    m_nodeCount = nodeCount;
-    m_priority = priority;
+    m_TP = priority;
+    m_collisions = 0;
+    m_backoffCount = 0;
+    m_freezeBackoff = false;
 }
 
 LrWpanCsmaCaNoba::LrWpanCsmaCaNoba()
@@ -98,7 +139,7 @@ LrWpanCsmaCaNoba::SetSlottedCsmaCa()
 void
 LrWpanCsmaCaNoba::SetUnSlottedCsmaCa()
 {
-    m_isSlotted = false;
+    NS_ASSERT_MSG(false, "cannot set unslotted CSMA/CA NOBA.");
 }
 
 bool
@@ -113,52 +154,51 @@ LrWpanCsmaCaNoba::IsUnSlottedCsmaCa()
     return !m_isSlotted;
 }
 
-void
-LrWpanCsmaCaNoba::SetMacMinBE(uint8_t macMinBE)
-{
-    NS_LOG_FUNCTION(this << macMinBE);
-    NS_ASSERT_MSG(macMinBE <= m_macMaxBE,
-                  "MacMinBE (" << macMinBE << ") should be <= MacMaxBE (" << m_macMaxBE << ")");
-    m_macMinBE = macMinBE;
-}
+// void
+// LrWpanCsmaCaNoba::SetMacMinBE(uint8_t macMinBE)
+// {
+//     NS_LOG_FUNCTION(this << macMinBE);
+//     NS_ASSERT_MSG(macMinBE <= m_macMaxBE,
+//                   "MacMinBE (" << macMinBE << ") should be <= MacMaxBE (" << m_macMaxBE << ")");
+//     m_macMinBE = macMinBE;
+// }
 
-uint8_t
-LrWpanCsmaCaNoba::GetMacMinBE() const
-{
-    NS_LOG_FUNCTION(this);
-    return m_macMinBE;
-}
+// uint8_t
+// LrWpanCsmaCaNoba::GetMacMinBE() const
+// {
+//     return m_macMinBE;
+// }
 
-void
-LrWpanCsmaCaNoba::SetMacMaxBE(uint8_t macMaxBE)
-{
-    NS_LOG_FUNCTION(this << macMaxBE);
-    NS_ASSERT_MSG(macMaxBE >= 3 && macMaxBE <= 8,
-                  "MacMaxBE (" << macMaxBE << ") should be >= 3 and <= 8");
-    m_macMaxBE = macMaxBE;
-}
+// void
+// LrWpanCsmaCaNoba::SetMacMaxBE(uint8_t macMaxBE)
+// {
+//     NS_LOG_FUNCTION(this << macMaxBE);
+//     NS_ASSERT_MSG(macMaxBE >= 3 && macMaxBE <= 8,
+//                   "MacMaxBE (" << macMaxBE << ") should be >= 3 and <= 8");
+//     m_macMaxBE = macMaxBE;
+// }
 
-uint8_t
-LrWpanCsmaCaNoba::GetMacMaxBE() const
-{
-    NS_LOG_FUNCTION(this);
-    return m_macMaxBE;
-}
+// uint8_t
+// LrWpanCsmaCaNoba::GetMacMaxBE() const
+// {
+//     NS_LOG_FUNCTION(this);
+//     return m_macMaxBE;
+// }
 
-void
-LrWpanCsmaCaNoba::SetMacMaxCSMABackoffs(uint8_t macMaxCSMABackoffs)
-{
-    NS_LOG_FUNCTION(this << macMaxCSMABackoffs);
-    NS_ASSERT_MSG(macMaxCSMABackoffs <= 5, "MacMaxCSMABackoffs should be <= 5");
-    m_macMaxCSMABackoffs = macMaxCSMABackoffs;
-}
+// void
+// LrWpanCsmaCaNoba::SetMacMaxCSMABackoffs(uint8_t macMaxCSMABackoffs)
+// {
+//     NS_LOG_FUNCTION(this << macMaxCSMABackoffs);
+//     NS_ASSERT_MSG(macMaxCSMABackoffs <= 5, "MacMaxCSMABackoffs should be <= 5");
+//     m_macMaxCSMABackoffs = macMaxCSMABackoffs;
+// }
 
-uint8_t
-LrWpanCsmaCaNoba::GetMacMaxCSMABackoffs() const
-{
-    NS_LOG_FUNCTION(this);
-    return m_macMaxCSMABackoffs;
-}
+// uint8_t
+// LrWpanCsmaCaNoba::GetMacMaxCSMABackoffs() const
+// {
+//     NS_LOG_FUNCTION(this);
+//     return m_macMaxCSMABackoffs;
+// }
 
 Time
 LrWpanCsmaCaNoba::GetTimeToNextSlot() const
@@ -218,45 +258,20 @@ void
 LrWpanCsmaCaNoba::Start()
 {
     NS_LOG_FUNCTION(this);
-    m_NB = 0;
-    if (IsSlottedCsmaCa())
-    {
-        NS_LOG_DEBUG("Using Slotted CSMA-CA");
+    NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
 
-        // TODO: Check if the current PHY is using the Japanese band 950 Mhz:
-        //       (IEEE_802_15_4_950MHZ_BPSK and IEEE_802_15_4_950MHZ_2GFSK)
-        //       if in use, m_CW = 1.
-        //       Currently 950 Mhz band PHYs are not supported in ns-3.
-        //       To know the current used PHY, making the method for GetPhy()->GetMyPhyOption()
-        //       public is necessary. Alternatively, the current PHY used
-        //       can be known using phyCurrentPage variable.
+    m_collisions = 0; // collision counter C
+    m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::CW[m_TP].second); // backoff counter B
+    NS_LOG_DEBUG("Using CSMA-CA NOBA, bakcoff count is: " << m_backoffCount);
 
-        m_CW = 2;
+    // m_coorDest to decide between incoming and outgoing superframes times
+    m_coorDest = m_mac->IsCoordDest();
 
-        if (m_macBattLifeExt)
-        {
-            m_BE = std::min(static_cast<uint8_t>(2), m_macMinBE);
-        }
-        else
-        {
-            m_BE = m_macMinBE;
-        }
-
-        // m_coorDest to decide between incoming and outgoing superframes times
-        m_coorDest = m_mac->IsCoordDest();
-
-        // Locate backoff period boundary. (i.e. a time delay to align with the next backoff period
-        // boundary)
-        Time backoffBoundary = GetTimeToNextSlot();
-        m_randomBackoffEvent =
-            Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaNoba::RandomBackoffDelay, this);
-    }
-    else
-    {
-        NS_LOG_DEBUG("Using Unslotted CSMA-CA");
-        m_BE = m_macMinBE;
-        m_randomBackoffEvent = Simulator::ScheduleNow(&LrWpanCsmaCaNoba::RandomBackoffDelay, this);
-    }
+    // Locate backoff period boundary. (i.e. a time delay to align with the next backoff period
+    // boundary)
+    Time backoffBoundary = GetTimeToNextSlot();
+    m_randomBackoffEvent =
+        Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaNoba::RandomBackoffDelay, this);
 }
 
 void
@@ -274,8 +289,8 @@ void
 LrWpanCsmaCaNoba::RandomBackoffDelay()
 {
     NS_LOG_FUNCTION(this);
+    NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA/CA is supported.");
 
-    uint64_t upperBound = (uint64_t)pow(2, m_BE) - 1;
     Time randomBackoff;
     uint64_t symbolRate;
     Time timeLeftInCap;
@@ -283,31 +298,22 @@ LrWpanCsmaCaNoba::RandomBackoffDelay()
     symbolRate = (uint64_t)m_mac->GetPhy()->GetDataOrSymbolRate(false); // symbols per second
 
     // We should not recalculate the random backoffPeriods if we are in a slotted CSMA-CA and the
-    // transmission was previously deferred (m_randomBackoffPeriods != 0)
-    if (m_randomBackoffPeriodsLeft == 0 || IsUnSlottedCsmaCa())
+    // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not receiveed
+    if (m_backoffCount == 0 || m_freezeBackoff)
     {
-        m_randomBackoffPeriodsLeft = (uint64_t)m_random->GetValue(0, upperBound + 1);
+        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::CW[m_TP].second);
     }
 
     randomBackoff =
-        Seconds((double)(m_randomBackoffPeriodsLeft * lrwpan::aUnitBackoffPeriod) / symbolRate);
+        Seconds((double)(m_backoffCount * lrwpan::aUnitBackoffPeriod) / symbolRate);
 
-    if (IsUnSlottedCsmaCa())
-    {
-        NS_LOG_DEBUG("Unslotted CSMA-CA: requesting CCA after backoff of "
-                     << m_randomBackoffPeriodsLeft << " periods (" << randomBackoff.As(Time::S)
-                     << ")");
-        m_requestCcaEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaNoba::RequestCCA, this);
-    }
-    else
-    {
         // We must make sure there is enough time left in the CAP, otherwise we continue in
         // the CAP of the next superframe after the transmission/reception of the beacon (and the
         // IFS)
         timeLeftInCap = GetTimeLeftInCap();
 
         NS_LOG_DEBUG("Slotted CSMA-CA: proceeding after random backoff of "
-                     << m_randomBackoffPeriodsLeft << " periods ("
+                     << m_backoffCount << " periods ("
                      << (randomBackoff.GetSeconds() * symbolRate) << " symbols or "
                      << randomBackoff.As(Time::S) << ")");
 
@@ -318,9 +324,9 @@ LrWpanCsmaCaNoba::RandomBackoffDelay()
 
         if (randomBackoff >= timeLeftInCap)
         {
-            uint64_t usedBackoffs =
+            uint32_t usedBackoffs =
                 (double)(timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod;
-            m_randomBackoffPeriodsLeft -= usedBackoffs;
+            m_backoffCount -= usedBackoffs;
             NS_LOG_DEBUG("No time in CAP to complete backoff delay, deferring to the next CAP");
             m_endCapEvent =
                 Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaNoba::DeferCsmaTimeout, this);
@@ -329,7 +335,6 @@ LrWpanCsmaCaNoba::RandomBackoffDelay()
         {
             m_canProceedEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaNoba::CanProceed, this);
         }
-    }
 }
 
 Time
@@ -388,7 +393,7 @@ LrWpanCsmaCaNoba::CanProceed()
     //
     //       note: phyCCADuration & 950Mhz band PHYs are
     //             not currently implemented in ns-3.
-    ccaSymbols += 8 * m_CW;
+    ccaSymbols += 8 * m_backoffCount;
 
     // The MAC sublayer shall proceed if the remaining CSMA-CA algorithm steps
     // can be completed before the end of the CAP.
@@ -465,61 +470,31 @@ LrWpanCsmaCaNoba::PlmeCcaConfirm(PhyEnumeration status)
         m_ccaRequestRunning = false;
         if (status == IEEE_802_15_4_PHY_IDLE)
         {
-            if (IsSlottedCsmaCa())
+            // channel is idle
+            m_backoffCount--;
+            if (m_backoffCount == 0)
             {
-                m_CW--;
-                if (m_CW == 0)
-                {
-                    // inform MAC channel is idle
-                    if (!m_lrWpanMacStateCallback.IsNull())
-                    {
-                        NS_LOG_LOGIC("Notifying MAC of idle channel");
-                        m_lrWpanMacStateCallback(CHANNEL_IDLE);
-                    }
-                }
-                else
-                {
-                    NS_LOG_LOGIC("Perform CCA again, m_CW = " << m_CW);
-                    m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaNoba::RequestCCA,
-                                                               this); // Perform CCA again
-                }
-            }
-            else
-            {
-                // inform MAC, channel is idle
+                // inform MAC channel is idle
                 if (!m_lrWpanMacStateCallback.IsNull())
                 {
                     NS_LOG_LOGIC("Notifying MAC of idle channel");
                     m_lrWpanMacStateCallback(CHANNEL_IDLE);
                 }
             }
+            else
+            {
+                NS_LOG_LOGIC("Perform CCA again, backoff count = " << m_backoffCount);
+                m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaNoba::RequestCCA,
+                                                            this); // Perform CCA again
+            }
         }
         else
         {
-            if (IsSlottedCsmaCa())
-            {
-                m_CW = 2;
-            }
-            m_BE = std::min(static_cast<uint16_t>(m_BE + 1), static_cast<uint16_t>(m_macMaxBE));
-            m_NB++;
-            if (m_NB > m_macMaxCSMABackoffs)
-            {
-                // no channel found so cannot send pkt
-                NS_LOG_DEBUG("Channel access failure");
-                if (!m_lrWpanMacStateCallback.IsNull())
-                {
-                    NS_LOG_LOGIC("Notifying MAC of Channel access failure");
-                    m_lrWpanMacStateCallback(CHANNEL_ACCESS_FAILURE);
-                }
-                return;
-            }
-            else
-            {
-                NS_LOG_DEBUG("Perform another backoff; m_NB = " << static_cast<uint16_t>(m_NB));
-                m_randomBackoffEvent =
-                    Simulator::ScheduleNow(&LrWpanCsmaCaNoba::RandomBackoffDelay,
-                                           this); // Perform another backoff (step 2)
-            }
+            // freeze backoff counter and retry
+            NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
+            m_freezeBackoff = true;
+            m_randomBackoffEvent =
+                Simulator::ScheduleNow(&LrWpanCsmaCaNoba::RandomBackoffDelay, this);
         }
     }
 }
@@ -555,13 +530,37 @@ LrWpanCsmaCaNoba::AssignStreams(int64_t stream)
 uint8_t
 LrWpanCsmaCaNoba::GetNB()
 {
-    return m_NB;
+    return m_collisions;
 }
 
 bool
 LrWpanCsmaCaNoba::GetBatteryLifeExtension()
 {
     return m_macBattLifeExt;
+}
+
+void
+LrWpanCsmaCaNoba::SetBackoffCounter()
+{
+    m_collisions++;
+    // TODO: vaildate this
+    if(m_collisions % 2 == 0) {
+        LrWpanCsmaCaNoba::SW[m_TP] += 2;
+        LrWpanCsmaCaNoba::CW[m_TP].second = 
+            std::min(LrWpanCsmaCaNoba::CW[m_TP].first + LrWpanCsmaCaNoba::SW[m_TP], LrWpanCsmaCaNoba::WL[m_TP]);
+
+        for (int i = m_TP - 1; i >= 0; i--) { // Adjust lower TPs
+            CW[i].first = CW[i + 1].second + 1;
+            CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
+        }
+    }
+
+    if(LrWpanCsmaCaNoba::CW[m_TP].second > LrWpanCsmaCaNoba::WL[m_TP]) {
+        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::WL[m_TP]);
+    }
+    else {
+        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::CW[m_TP].second);
+    }
 }
 
 } // namespace lrwpan
