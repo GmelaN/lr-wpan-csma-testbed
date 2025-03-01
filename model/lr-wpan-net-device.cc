@@ -116,7 +116,7 @@ void
 LrWpanNetDevice::CompleteConfig()
 {
     NS_LOG_FUNCTION(this);
-    if (!m_mac || !m_phy || !m_csmaca || !m_node || m_configComplete)
+    if (!m_mac || !m_phy || !m_csmaca || !m_node) // || m_configComplete)
     {
         return;
     }
