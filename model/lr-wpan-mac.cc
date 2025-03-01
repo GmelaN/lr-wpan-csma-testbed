@@ -2023,6 +2023,19 @@ void
 LrWpanMac::SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaCa)
 {
     m_csmaCa = csmaCa;
+
+    // identify csma type
+    if (DynamicCast<LrWpanCsmaCa>(csmaCa)) {
+        m_csmaOption = CSMA_ORIGINAL;
+    }
+    else if (DynamicCast<LrWpanCsmaCaNoba>(csmaCa)) {
+        m_csmaOption = CSMA_NOBA;
+    }
+    else {
+        NS_ASSERT_MSG(false, "invaild CSMA option found.");
+    }
+
+    NS_LOG_DEBUG("using CSMA/CA: " << m_csmaOption);
 }
 
 void

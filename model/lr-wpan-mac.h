@@ -42,6 +42,19 @@ class LrWpanCsmaCaCommon;
  * description, please refer to the ns-3 manual.
  */
 
+ /**
+ * \ingroup lr-wpan
+ *
+ * CSMA options
+ */
+enum CsmaOption
+{
+    CSMA_ORIGINAL = 0,
+    CSMA_NOBA = 1,
+    CSMA_SW_NOBA = 2,
+    CSMA_RL_NOBA = 3
+};
+
 /**
  * \ingroup lr-wpan
  *
@@ -1347,6 +1360,11 @@ class LrWpanMac : public LrWpanMacBase
      * The uniform random variable used in this mac layer
      */
     Ptr<UniformRandomVariable> m_uniformVar;
+
+    /**
+     * CSMA mechanism
+     */
+    CsmaOption m_csmaOption;
 };
 } // namespace lrwpan
 } // namespace ns3
