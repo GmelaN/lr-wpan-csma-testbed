@@ -1024,6 +1024,12 @@ LrWpanMac::MlmeGetRequest(MacPibAttributeIdentifier id)
 void
 LrWpanMac::SendOneBeacon()
 {
+    // initalize parameters(CSMA/CA - NOBA)
+    if(m_csmaOption == CSMA_NOBA)
+    {
+        DynamicCast<LrWpanCsmaCaNoba>(m_csmaCa)->InitializeGlobals();
+    } 
+
     NS_LOG_FUNCTION(this);
     NS_ASSERT(m_macState == MAC_IDLE);
 
