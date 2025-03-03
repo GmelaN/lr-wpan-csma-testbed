@@ -1,25 +1,11 @@
 /*
- * Copyright (c) 2019 Ritsumeikan University, Shiga, Japan.
+ * Copyright (c) 2025 Gyeongsang National University, Jinju, South Korea.
  *
  * SPDX-License-Identifier: GPL-2.0-only
  *
- * Author:  Alberto Gallegos Ramonet <ramonet@fc.ritsumei.ac.jp>
+ * Author:  Jo Seoung Hyeon <gmelan@gnu.ac.kr>
  */
 
-/*
- *   Coordinator              End Device
- *       N0   <----------------  N1
- *      (dev0)                 (dev1)
- *
- * This example demonstrate the usage of the MAC primitives involved in
- * direct transmissions for the beacon enabled mode of IEEE 802.15.4-2011.
- * A single packet is sent from an end device to the coordinator during the CAP
- * of the first incoming superframe.
- *
- * This example do not demonstrate a full protocol stack usage.
- * For full protocol stack usage refer to 6lowpan examples.
- *
- */
 
 #include <ns3/constant-position-mobility-model.h>
 #include <ns3/core-module.h>
