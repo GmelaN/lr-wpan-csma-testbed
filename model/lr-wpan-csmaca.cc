@@ -21,7 +21,7 @@
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT                                                                      \
-    std::clog << "[" << m_mac->GetShortAddress() << " | " << m_mac->GetExtendedAddress() << "] ";
+    std::clog << "[" << m_mac->GetShortAddress() << "] ";
 
 namespace ns3
 {
@@ -38,7 +38,13 @@ LrWpanCsmaCa::GetTypeId()
                             .AddDeprecatedName("ns3::LrWpanCsmaCa")
                             .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
-                            .AddConstructor<LrWpanCsmaCa>();
+                            .AddConstructor<LrWpanCsmaCa>()
+                            .AddTraceSource("csmaCaCollisionTrace",
+                                "CSMA/CA-NOBA collision count trace",
+                                MakeTraceSourceAccessor(&LrWpanCsmaCa::m_csmaCaCollisionTrace),
+                                "ns3::TracedCallback");
+return tid;
+                            ;
     return tid;
 }
 
@@ -46,7 +52,7 @@ LrWpanCsmaCa::LrWpanCsmaCa()
 {
     // TODO-- make these into ns-3 attributes
 
-    m_isSlotted = false;
+    m_isSlotted = true;
     m_NB = 0;
     m_CW = 2;
     m_macBattLifeExt = false;
@@ -58,6 +64,27 @@ LrWpanCsmaCa::LrWpanCsmaCa()
     m_ccaRequestRunning = false;
     m_randomBackoffPeriodsLeft = 0;
     m_coorDest = false;
+
+    m_TP = 0; // TP not used
+}
+
+LrWpanCsmaCa::LrWpanCsmaCa(uint8_t priority)
+{
+    
+    m_isSlotted = true;
+    m_NB = 0;
+    m_CW = 2;
+    m_macBattLifeExt = false;
+    m_macMinBE = 3;
+    m_macMaxBE = 5;
+    m_macMaxCSMABackoffs = 4;
+    m_random = CreateObject<UniformRandomVariable>();
+    m_BE = m_macMinBE;
+    m_ccaRequestRunning = false;
+    m_randomBackoffPeriodsLeft = 0;
+    m_coorDest = false;
+
+    m_TP = priority;
 }
 
 LrWpanCsmaCa::~LrWpanCsmaCa()
@@ -96,6 +123,7 @@ LrWpanCsmaCa::SetSlottedCsmaCa()
 void
 LrWpanCsmaCa::SetUnSlottedCsmaCa()
 {
+    NS_ASSERT_MSG(false, "only slotted CSMA/CA supported.");
     m_isSlotted = false;
 }
 
@@ -494,6 +522,7 @@ LrWpanCsmaCa::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
+            m_csmaCaCollisionTrace(m_TP, m_CW);
             if (IsSlottedCsmaCa())
             {
                 m_CW = 2;

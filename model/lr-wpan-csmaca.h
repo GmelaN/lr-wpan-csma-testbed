@@ -61,6 +61,7 @@ class LrWpanCsmaCa : public LrWpanCsmaCaCommon
      * Default constructor.
      */
     LrWpanCsmaCa();
+    LrWpanCsmaCa(uint8_t priority);
     ~LrWpanCsmaCa() override;
 
     // Delete copy constructor and assignment operator to avoid misuse
