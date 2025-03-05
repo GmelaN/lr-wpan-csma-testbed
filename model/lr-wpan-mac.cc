@@ -30,7 +30,7 @@
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT                                                                      \
-    std::clog << "[" << m_shortAddress << " | " << m_macExtendedAddress << "] ";
+    std::clog << "[" << m_shortAddress << "] "; // " | " << m_macExtendedAddress << "] ";
 
 namespace ns3
 {
@@ -2273,7 +2273,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
 
             if (acceptFrame)
             {
-                m_macRxTrace(originalPkt);
+                if(receivedMacHdr.IsData()) m_macRxTrace(originalPkt, m_priority);
                 // \todo: What should we do if we receive a frame while waiting for an ACK?
                 //        Especially if this frame has the ACK request bit set, should we reply with
                 //        an ACK, possibly missing the pending ACK?
@@ -2394,7 +2394,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                         }
                         else
                         {
-                            m_macRxDropTrace(originalPkt);
+                            m_macRxDropTrace(originalPkt, m_priority);
                         }
                         break;
                     case CommandPayloadHeader::ORPHAN_NOTIF:
@@ -2458,7 +2458,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                     if (receivedMacHdr.GetSeqNum() == peekedMacHdr.GetSeqNum())
                     {
                         m_ackWaitTimeout.Cancel();
-                        m_macTxOkTrace(m_txPkt);
+                        m_macTxOkTrace(m_txPkt, m_priority);
 
                         // TODO: check  if the IFS is the correct size after ACK.
                         Time ifsWaitTime = Seconds((double)GetIfsSize() / symbolRate);
@@ -2827,7 +2827,8 @@ LrWpanMac::PrepareRetransmission()
             // Maximum number of retransmissions has been reached.
             // remove the copy of the DATA packet that was just sent
             Ptr<TxQueueElement> txQElement = m_txQueue.front();
-            m_macTxDropTrace(txQElement->txQPkt);
+            m_macTxDropTrace(txQElement->txQPkt, m_priority);
+            NS_LOG_DEBUG("TX DROP: NO_ACK");
             if (!m_mcpsDataConfirmCallback.IsNull())
             {
                 McpsDataConfirmParams confirmParams;
@@ -3209,7 +3210,7 @@ LrWpanMac::PdDataConfirm(PhyEnumeration status)
             }
             else
             {
-                m_macTxOkTrace(m_txPkt);
+                m_macTxOkTrace(m_txPkt, m_priority);
                 // remove the copy of the packet that was just sent
                 if (!m_mcpsDataConfirmCallback.IsNull())
                 {
@@ -3321,7 +3322,7 @@ LrWpanMac::PdDataConfirm(PhyEnumeration status)
         {
             NS_ASSERT_MSG(!m_txQueue.empty(), "TxQsize = 0");
             Ptr<TxQueueElement> txQElement = m_txQueue.front();
-            m_macTxDropTrace(txQElement->txQPkt);
+            m_macTxDropTrace(txQElement->txQPkt, m_priority);
             if (!m_mcpsDataConfirmCallback.IsNull())
             {
                 McpsDataConfirmParams confirmParams;
@@ -3399,7 +3400,7 @@ LrWpanMac::PlmeSetTRXStateConfirm(PhyEnumeration status)
         // Start sending if we are in state SENDING and the PHY transmitter was enabled.
         m_promiscSnifferTrace(m_txPkt);
         m_snifferTrace(m_txPkt);
-        m_macTxTrace(m_txPkt);
+        m_macTxTrace(m_txPkt, m_priority);
         m_phy->PdDataRequest(m_txPkt->GetSize(), m_txPkt);
     }
     else if (m_macState == MAC_CSMA &&
