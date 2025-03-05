@@ -279,6 +279,11 @@ class LrWpanCsmaCaNoba : public LrWpanCsmaCaCommon
     void DoDispose() override;
 
     Time GetTimeLeftInCap() override;
+
+    // /**
+    //  * The trace source fired when collision occurs.
+    //  */
+    // TracedCallback<uint8_t, uint32_t> m_csmaCaCollisionTrace;
 };
 
 } // namespace lrwpan

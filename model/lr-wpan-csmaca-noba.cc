@@ -16,9 +16,9 @@
 
 #include <algorithm>
 
-#undef NS_LOG_APPEND_CONTEXT
-#define NS_LOG_APPEND_CONTEXT                                                                      \
-    std::clog << "[" << m_mac->GetShortAddress() << " | " << m_mac->GetExtendedAddress() << "] ";
+// #undef NS_LOG_APPEND_CONTEXT
+// #define NS_LOG_APPEND_CONTEXT                                                                      \
+//     std::clog << "[" << m_mac->GetShortAddress() << "] ";
 
 namespace ns3
 {
@@ -41,7 +41,11 @@ LrWpanCsmaCaNoba::GetTypeId()
                             .AddDeprecatedName("ns3::LrWpanCsmaCaNoba")
                             .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
-                            .AddConstructor<LrWpanCsmaCaNoba>();
+                            .AddConstructor<LrWpanCsmaCaNoba>()
+                            .AddTraceSource("csmaCaCollisionTrace",
+                                            "CSMA/CA-NOBA collision count trace",
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaNoba::m_csmaCaCollisionTrace),
+                                            "ns3::TracedCallback");
     return tid;
 }
 
@@ -71,6 +75,26 @@ LrWpanCsmaCaNoba::InitializeGlobals()
                 std::min(LrWpanCsmaCaNoba::CW[i].first + LrWpanCsmaCaNoba::SW[i], LrWpanCsmaCaNoba::WL[i]);
         }
     }
+
+    NS_LOG_DEBUG(
+        "CSMA/CA-NOBA: Initializing SW, CW, WL...\n"
+        <<
+        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+        <<
+        '\n'
+        <<
+        "CW: "
+        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+        <<
+        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    );
     return;
 }
 
@@ -153,52 +177,6 @@ LrWpanCsmaCaNoba::IsUnSlottedCsmaCa()
 {
     return !m_isSlotted;
 }
-
-// void
-// LrWpanCsmaCaNoba::SetMacMinBE(uint8_t macMinBE)
-// {
-//     NS_LOG_FUNCTION(this << macMinBE);
-//     NS_ASSERT_MSG(macMinBE <= m_macMaxBE,
-//                   "MacMinBE (" << macMinBE << ") should be <= MacMaxBE (" << m_macMaxBE << ")");
-//     m_macMinBE = macMinBE;
-// }
-
-// uint8_t
-// LrWpanCsmaCaNoba::GetMacMinBE() const
-// {
-//     return m_macMinBE;
-// }
-
-// void
-// LrWpanCsmaCaNoba::SetMacMaxBE(uint8_t macMaxBE)
-// {
-//     NS_LOG_FUNCTION(this << macMaxBE);
-//     NS_ASSERT_MSG(macMaxBE >= 3 && macMaxBE <= 8,
-//                   "MacMaxBE (" << macMaxBE << ") should be >= 3 and <= 8");
-//     m_macMaxBE = macMaxBE;
-// }
-
-// uint8_t
-// LrWpanCsmaCaNoba::GetMacMaxBE() const
-// {
-//     NS_LOG_FUNCTION(this);
-//     return m_macMaxBE;
-// }
-
-// void
-// LrWpanCsmaCaNoba::SetMacMaxCSMABackoffs(uint8_t macMaxCSMABackoffs)
-// {
-//     NS_LOG_FUNCTION(this << macMaxCSMABackoffs);
-//     NS_ASSERT_MSG(macMaxCSMABackoffs <= 5, "MacMaxCSMABackoffs should be <= 5");
-//     m_macMaxCSMABackoffs = macMaxCSMABackoffs;
-// }
-
-// uint8_t
-// LrWpanCsmaCaNoba::GetMacMaxCSMABackoffs() const
-// {
-//     NS_LOG_FUNCTION(this);
-//     return m_macMaxCSMABackoffs;
-// }
 
 Time
 LrWpanCsmaCaNoba::GetTimeToNextSlot() const
@@ -312,7 +290,7 @@ LrWpanCsmaCaNoba::RandomBackoffDelay()
         // IFS)
         timeLeftInCap = GetTimeLeftInCap();
 
-        NS_LOG_DEBUG("Slotted CSMA-CA: proceeding after random backoff of "
+        NS_LOG_DEBUG("CSMA/CA-NOBA: proceeding after random backoff of "
                      << m_backoffCount << " periods ("
                      << (randomBackoff.GetSeconds() * symbolRate) << " symbols or "
                      << randomBackoff.As(Time::S) << ")");
@@ -490,6 +468,7 @@ LrWpanCsmaCaNoba::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
+            m_csmaCaCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
@@ -543,8 +522,10 @@ void
 LrWpanCsmaCaNoba::SetBackoffCounter()
 {
     m_collisions++;
+    m_csmaCaCollisionTrace(m_TP, m_collisions);
     // TODO: vaildate this
     if(m_collisions % 2 == 0) {
+        NS_LOG_DEBUG("collision is even: modifying parameters...");
         LrWpanCsmaCaNoba::SW[m_TP] += 2;
         LrWpanCsmaCaNoba::CW[m_TP].second = 
             std::min(LrWpanCsmaCaNoba::CW[m_TP].first + LrWpanCsmaCaNoba::SW[m_TP], LrWpanCsmaCaNoba::WL[m_TP]);
@@ -553,6 +534,26 @@ LrWpanCsmaCaNoba::SetBackoffCounter()
             CW[i].first = CW[i + 1].second + 1;
             CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
         }
+
+        NS_LOG_DEBUG(
+            "CSMA/CA-NOBA: MODIFIED values: \n"
+            <<
+            "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+            <<
+            '\n'
+            <<
+            "CW: "
+            << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+            << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+            << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+            << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+            << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+            << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+            << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+            << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+            <<
+            "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+        );
     }
 
     if(LrWpanCsmaCaNoba::CW[m_TP].second > LrWpanCsmaCaNoba::WL[m_TP]) {
@@ -561,6 +562,8 @@ LrWpanCsmaCaNoba::SetBackoffCounter()
     else {
         m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::CW[m_TP].second);
     }
+
+    NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
 }
 
 } // namespace lrwpan
