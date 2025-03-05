@@ -1019,7 +1019,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_macTxEnqueueTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_macTxEnqueueTrace;
 
     /**
      * The trace source fired when packets are dequeued from the
@@ -1050,7 +1050,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_macTxTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_macTxTrace;
 
     /**
      * The trace source fired when packets where successfully transmitted, that is
@@ -1059,7 +1059,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_macTxOkTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_macTxOkTrace;
 
     /**
      * The trace source fired when packets are dropped due to missing ACKs or
@@ -1067,7 +1067,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_macTxDropTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_macTxDropTrace;
 
     /**
      * The trace source fired when packets are dropped due to indirect Tx queue
@@ -1093,7 +1093,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_macRxTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_macRxTrace;
 
     /**
      * The trace source fired for packets successfully received by the device
@@ -1102,7 +1102,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_macRxDropTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_macRxDropTrace;
 
     /**
      * A trace source that emulates a non-promiscuous protocol sniffer connected
