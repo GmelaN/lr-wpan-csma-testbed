@@ -2091,7 +2091,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
     // level 1 filtering
     if (!receivedMacTrailer.CheckFcs(p))
     {
-        m_macRxDropTrace(originalPkt);
+        m_macRxDropTrace(originalPkt, m_priority);
     }
     else
     {
@@ -2439,7 +2439,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                         //       used during an orphan scan.
                         break;
                     default:
-                        m_macRxDropTrace(originalPkt);
+                        m_macRxDropTrace(originalPkt, m_priority);
                         break;
                     }
                 }
@@ -2608,7 +2608,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
             }
             else
             {
-                m_macRxDropTrace(originalPkt);
+                m_macRxDropTrace(originalPkt, m_priority);
             }
         }
     }
@@ -2649,7 +2649,7 @@ LrWpanMac::EnqueueTxQElement(Ptr<TxQueueElement> txQElement)
     if (m_txQueue.size() < m_maxTxQueueSize)
     {
         m_txQueue.emplace_back(txQElement);
-        m_macTxEnqueueTrace(txQElement->txQPkt);
+        m_macTxEnqueueTrace(txQElement->txQPkt, m_priority);
     }
     else
     {
