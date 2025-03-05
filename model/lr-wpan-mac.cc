@@ -2661,7 +2661,7 @@ LrWpanMac::EnqueueTxQElement(Ptr<TxQueueElement> txQElement)
             m_mcpsDataConfirmCallback(confirmParams);
         }
         NS_LOG_DEBUG("TX Queue with size " << m_txQueue.size() << " is full, dropping packet");
-        m_macTxDropTrace(txQElement->txQPkt);
+        // m_macTxDropTrace(txQElement->txQPkt, m_priority);
     }
 }
 
@@ -2752,7 +2752,7 @@ LrWpanMac::PrepareRetransmission()
 
         if (peekedMacHdr.IsCommand())
         {
-            m_macTxDropTrace(m_txPkt);
+            m_macTxDropTrace(m_txPkt, m_priority);
 
             Ptr<Packet> pkt = m_txPkt->Copy();
             LrWpanMacHeader macHdr;
@@ -3712,7 +3712,7 @@ LrWpanMac::SetLrWpanMacState(MacState macState)
         // and send the proper confirm/indication according to the packet type
         NS_LOG_DEBUG(this << " cannot find clear channel");
 
-        m_macTxDropTrace(m_txPkt);
+        m_macTxDropTrace(m_txPkt, m_priority);
 
         Ptr<Packet> pkt = m_txPkt->Copy();
         LrWpanMacHeader macHdr;
