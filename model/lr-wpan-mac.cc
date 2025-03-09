@@ -16,6 +16,7 @@
 #include "lr-wpan-constants.h"
 #include "lr-wpan-csmaca.h"
 #include "lr-wpan-csmaca-noba.h"
+#include "lr-wpan-csmaca-sw-noba.h"
 #include "lr-wpan-mac-header.h"
 #include "lr-wpan-mac-pl-headers.h"
 #include "lr-wpan-mac-trailer.h"
@@ -1028,7 +1029,11 @@ LrWpanMac::SendOneBeacon()
     if(m_csmaOption == CSMA_NOBA)
     {
         DynamicCast<LrWpanCsmaCaNoba>(m_csmaCa)->InitializeGlobals();
-    } 
+    }
+    else if(m_csmaOption == CSMA_SW_NOBA)
+    {
+        DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa)->InitializeGlobals();
+    }
 
     NS_LOG_FUNCTION(this);
     NS_ASSERT(m_macState == MAC_IDLE);
@@ -2038,6 +2043,9 @@ LrWpanMac::SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaCa)
     else if (DynamicCast<LrWpanCsmaCaNoba>(csmaCa)) {
         m_csmaOption = CSMA_NOBA;
     }
+    else if (DynamicCast<LrWpanCsmaCaSwNoba>(csmaCa)) {
+        m_csmaOption = CSMA_SW_NOBA;
+    }
     else {
         NS_ASSERT_MSG(false, "invaild CSMA option found.");
     }
@@ -2460,6 +2468,20 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                         m_ackWaitTimeout.Cancel();
                         m_macTxOkTrace(m_txPkt, m_priority);
 
+                        Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
+                        if (csma)
+                        {
+                            // TODO: consider continuous TX success
+                            LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()]++;
+                            if (LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] == 3)
+                            {
+                                LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 1;
+                                csma->AdjustSW();
+
+                            }
+                        }
+
+
                         // TODO: check  if the IFS is the correct size after ACK.
                         Time ifsWaitTime = Seconds((double)GetIfsSize() / symbolRate);
 
@@ -2706,6 +2728,10 @@ LrWpanMac::AckWaitTimeout()
         if(m_csmaOption == CSMA_NOBA) {
             // NO ACK, increase collision count and recalculate backoff counter
             DynamicCast<LrWpanCsmaCaNoba>(m_csmaCa)->SetBackoffCounter();
+        }
+        else if(m_csmaOption == CSMA_SW_NOBA) {
+            // NO ACK, increase collision count and recalculate backoff counter
+            DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa)->SetBackoffCounter();
         }
         SetLrWpanMacState(MAC_CSMA);
     }
