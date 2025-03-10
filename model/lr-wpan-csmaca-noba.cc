@@ -16,10 +16,11 @@
 
 #include <algorithm>
 
-// #undef NS_LOG_APPEND_CONTEXT
-// #define NS_LOG_APPEND_CONTEXT                                                                      \
-//     std::clog << "[" << m_mac->GetShortAddress() << "] ";
-
+/*
+#undef NS_LOG_APPEND_CONTEXT
+#define NS_LOG_APPEND_CONTEXT                                                                      \
+     std::clog << "[" << m_mac->GetShortAddress() << "] ";
+*/
 namespace ns3
 {
 namespace lrwpan
@@ -42,7 +43,7 @@ LrWpanCsmaCaNoba::GetTypeId()
                             .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
                             .AddConstructor<LrWpanCsmaCaNoba>()
-                            .AddTraceSource("csmaCaCollisionTrace",
+                            .AddTraceSource("csmaCaNobaCollisionTrace",
                                             "CSMA/CA-NOBA collision count trace",
                                             MakeTraceSourceAccessor(&LrWpanCsmaCaNoba::m_csmaCaCollisionTrace),
                                             "ns3::TracedCallback");
@@ -468,7 +469,7 @@ LrWpanCsmaCaNoba::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
-            m_csmaCaCollisionTrace(m_TP, m_collisions);
+            // m_csmaCaCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
