@@ -440,6 +440,7 @@ LrWpanPhy::StartRx(Ptr<SpectrumSignalParameters> spectrumRxParams)
         }
         else
         {
+            NS_LOG_DEBUG("DROP PACKET DUE TO LOW SIGNAL");
             m_phyRxDropTrace(p);
         }
     }
@@ -601,6 +602,7 @@ LrWpanPhy::EndRx(Ptr<SpectrumSignalParameters> par)
         }
         else
         {
+            NS_LOG_DEBUG("PACKET DROPPED");
             // The packet was destroyed due to interference, post-rx corruption or
             // cancelled, therefore drop it.
             m_phyRxDropTrace(currentPacket);
