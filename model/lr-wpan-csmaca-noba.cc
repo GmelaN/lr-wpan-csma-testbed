@@ -51,51 +51,59 @@ LrWpanCsmaCaNoba::GetTypeId()
 }
 
 void
-LrWpanCsmaCaNoba::InitializeGlobals()
+LrWpanCsmaCaNoba::InitializeGlobals(bool init)
 {
-    // TODO: vaildate this logic
-    for(int i = 0; i < TP_COUNT; i++) {
-        LrWpanCsmaCaNoba::SW[i] = 1;
-    }
-    LrWpanCsmaCaNoba::CW[7].first = 1;
-    
-    for(int i = TP_COUNT - 1; i >= 0; i--) {
-        LrWpanCsmaCaNoba::WL[i] = 8 * (8 - i); // 8, 16, 24, 32, 40, 48, 56, 64
-    }
-    
-    for(int i = TP_COUNT - 1; i >= 0; i--) {
-        if(i > 0) {
-            LrWpanCsmaCaNoba::CW[i].second = // CW_max,i
-                std::min(LrWpanCsmaCaNoba::CW[i].first + LrWpanCsmaCaNoba::SW[i], LrWpanCsmaCaNoba::WL[i]);
-            
-            LrWpanCsmaCaNoba::CW[i-1].first = // CW_min,i-1
-                LrWpanCsmaCaNoba::CW[i].second + 1;
+    if (init)
+    {
+        // TODO: vaildate this logic
+        for(int i = 0; i < TP_COUNT; i++)
+        {
+            SW[i] = 1;
         }
-        else {
-            LrWpanCsmaCaNoba::CW[i].second =
-                std::min(LrWpanCsmaCaNoba::CW[i].first + LrWpanCsmaCaNoba::SW[i], LrWpanCsmaCaNoba::WL[i]);
+    }
+    CW[7].first = 1;
+    
+    for(int i = TP_COUNT - 1; i >= 0; i--)
+    {
+        WL[i] = 8 * (8 - i); // 8, 16, 24, 32, 40, 48, 56, 64
+    }
+    
+    for(int i = TP_COUNT - 1; i >= 0; i--)
+    {
+        if(i > 0)
+        {
+            CW[i].second = // CW_max,i
+                std::min(CW[i].first + SW[i], WL[i]);
+            
+            CW[i-1].first = // CW_min,i-1
+                CW[i].second + 1;
+        }
+        else
+        {
+            CW[i].second =
+                std::min(CW[i].first + SW[i], WL[i]);
         }
     }
 
-    NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: Initializing SW, CW, WL...\n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
+    // NS_LOG_DEBUG(
+    //     "CSMA/CA-NOBA: Initializing SW, CW, WL...\n"
+    //     <<
+    //     "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+    //     <<
+    //     '\n'
+    //     <<
+    //     "CW: "
+    //     << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+    //     << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+    //     << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+    //     << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+    //     << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+    //     << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+    //     << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+    //     << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+    //     <<
+    //     "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    // );
     return;
 }
 
