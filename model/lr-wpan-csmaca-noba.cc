@@ -112,15 +112,11 @@ LrWpanCsmaCaNoba::LrWpanCsmaCaNoba(uint8_t priority)
 {
     NS_ASSERT(priority >= 0 && priority <= 7);
 
-    LrWpanCsmaCaNoba::InitializeGlobals();
+    InitializeGlobals(true);
 
     m_isSlotted = true;
     m_macBattLifeExt = false;
-    // m_macMinBE = 3;
-    // m_macMaxBE = 5;
-    // m_macMaxCSMABackoffs = 4;
     m_random = CreateObject<UniformRandomVariable>();
-    // m_BE = m_macMinBE;
     m_ccaRequestRunning = false;
     m_randomBackoffPeriodsLeft = 0;
     m_coorDest = false;

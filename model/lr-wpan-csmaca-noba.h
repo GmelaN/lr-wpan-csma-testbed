@@ -55,7 +55,7 @@ class LrWpanCsmaCaNoba : public LrWpanCsmaCaCommon
   static uint32_t WL[TP_COUNT]; // each TP
 
   public:
-     static void InitializeGlobals();
+     static void InitializeGlobals(bool init);
   
      /**
       * Get the type ID.
