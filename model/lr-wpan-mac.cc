@@ -268,6 +268,7 @@ LrWpanMac::DoInitialize()
         m_phy->PlmeSetTRXStateRequest(IEEE_802_15_4_PHY_TRX_OFF);
     }
 
+    m_phy->SetPriority(m_priority);
     Object::DoInitialize();
 }
 
@@ -1028,11 +1029,11 @@ LrWpanMac::SendOneBeacon()
     // initalize parameters(CSMA/CA - NOBA)
     if(m_csmaOption == CSMA_NOBA)
     {
-        DynamicCast<LrWpanCsmaCaNoba>(m_csmaCa)->InitializeGlobals();
+        LrWpanCsmaCaNoba::InitializeGlobals(true);
     }
     else if(m_csmaOption == CSMA_SW_NOBA)
     {
-        DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa)->InitializeGlobals();
+        LrWpanCsmaCaSwNoba::InitializeGlobals(true);
     }
 
     NS_LOG_FUNCTION(this);
@@ -2042,9 +2043,11 @@ LrWpanMac::SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaCa)
     }
     else if (DynamicCast<LrWpanCsmaCaNoba>(csmaCa)) {
         m_csmaOption = CSMA_NOBA;
+        LrWpanCsmaCaNoba::InitializeGlobals(true);
     }
     else if (DynamicCast<LrWpanCsmaCaSwNoba>(csmaCa)) {
         m_csmaOption = CSMA_SW_NOBA;
+        LrWpanCsmaCaSwNoba::InitializeGlobals(true);
     }
     else {
         NS_ASSERT_MSG(false, "invaild CSMA option found.");
@@ -2468,14 +2471,13 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                         m_ackWaitTimeout.Cancel();
                         m_macTxOkTrace(m_txPkt, m_priority);
 
-                        Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
-                        if (csma)
+                        if (m_csmaOption == CSMA_SW_NOBA)
                         {
-                            // TODO: consider continuous TX success
+                            Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
                             LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()]++;
                             if (LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] == 3)
                             {
-                                LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 1;
+                                LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
                                 csma->AdjustSW();
 
                             }
@@ -2630,6 +2632,11 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
             }
             else
             {
+                if (m_csmaOption == CSMA_SW_NOBA)
+                {
+                    Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
+                    LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
+                }
                 m_macRxDropTrace(originalPkt, m_priority);
             }
         }
@@ -4029,6 +4036,10 @@ void
 LrWpanMac::setPriority(uint8_t priority)
 {
     NS_ASSERT(priority >= 0 && priority <= 7);
+    if (m_phy)
+    {
+        m_phy->SetPriority(priority);
+    }
     m_priority = priority;
 }
 
@@ -4038,5 +4049,12 @@ LrWpanMac::getPriority()
     return m_priority;
 }
 
+
+void
+LrWpanMac::PhyRxDropTrace(Ptr<const Packet> p)
+{
+
+
+}
 } // namespace lrwpan
 } // namespace ns3

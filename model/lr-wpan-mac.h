@@ -749,6 +749,8 @@ class LrWpanMac : public LrWpanMacBase
      */
     uint8_t getPriority();
     void setPriority(uint8_t priority);
+    void PhyRxDropTrace(Ptr<const Packet> p);
+
 
   protected:
     // Inherited from Object.
