@@ -243,8 +243,8 @@ LrWpanCsmaCaNoba::Start()
     NS_LOG_FUNCTION(this);
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
 
-    m_collisions = 0; // collision counter C
-    m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::CW[m_TP].second); // backoff counter B
+    // m_collisions = 0; // collision counter C
+    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second + SW[m_TP]); // backoff counter B
     NS_LOG_DEBUG("Using CSMA-CA NOBA, bakcoff count is: " << m_backoffCount);
 
     // m_coorDest to decide between incoming and outgoing superframes times
@@ -263,7 +263,8 @@ LrWpanCsmaCaNoba::Cancel()
     m_randomBackoffEvent.Cancel();
     m_requestCcaEvent.Cancel();
     m_canProceedEvent.Cancel();
-    if(m_mac) {
+    if(m_mac)
+    {
         m_mac->GetPhy()->CcaCancel();
     }
 }
