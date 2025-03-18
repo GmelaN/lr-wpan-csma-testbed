@@ -113,7 +113,7 @@ LrWpanCsmaCaSwNoba::LrWpanCsmaCaSwNoba(uint8_t priority)
         LrWpanCsmaCaSwNoba::COLLISION_COUNT[i] = 0;
     }
 
-    LrWpanCsmaCaSwNoba::InitializeGlobals();
+    InitializeGlobals(true);
 
     m_isSlotted = true;
     m_macBattLifeExt = false;
@@ -296,7 +296,7 @@ LrWpanCsmaCaSwNoba::RandomBackoffDelay()
         // IFS)
         timeLeftInCap = GetTimeLeftInCap();
 
-        NS_LOG_DEBUG("CSMA/CA-NOBA: proceeding after random backoff of "
+        NS_LOG_DEBUG("CSMA/CA SW-NOBA: proceeding after random backoff of "
                      << m_backoffCount << " periods ("
                      << (randomBackoff.GetSeconds() * symbolRate) << " symbols or "
                      << randomBackoff.As(Time::S) << ")");
