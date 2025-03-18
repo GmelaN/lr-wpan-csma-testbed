@@ -561,6 +561,9 @@ class LrWpanPhy : public SpectrumPhy
                                         PhyEnumeration oldState,
                                         PhyEnumeration newState);
 
+    uint8_t GetPriority();
+    void SetPriority(uint8_t priority);
+
   private:
     /**
      * The second is true if the first is flagged as error/invalid.
@@ -729,7 +732,7 @@ class LrWpanPhy : public SpectrumPhy
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_phyRxDropTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_phyRxDropTrace;
 
     /**
      * The trace source fired when the phy layer changes the transceiver state.
@@ -950,6 +953,9 @@ class LrWpanPhy : public SpectrumPhy
     Ptr<UniformRandomVariable> m_random;
 
     Ptr<ErrorModel> m_postReceptionErrorModel; //!< Error model for receive packet events
+
+    uint8_t m_priority;
+
 };
 
 } // namespace lrwpan

@@ -441,14 +441,14 @@ LrWpanPhy::StartRx(Ptr<SpectrumSignalParameters> spectrumRxParams)
         else
         {
             NS_LOG_DEBUG("DROP PACKET DUE TO LOW SIGNAL");
-            m_phyRxDropTrace(p);
+            // m_phyRxDropTrace(p, m_priority);
         }
     }
     else if (m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
     {
         // Drop the new packet.
         NS_LOG_DEBUG(this << " packet collision");
-        m_phyRxDropTrace(p);
+        m_phyRxDropTrace(p, m_priority);
 
         // Check if we correctly received the old packet up to now.
         CheckInterference();
@@ -462,7 +462,7 @@ LrWpanPhy::StartRx(Ptr<SpectrumSignalParameters> spectrumRxParams)
     {
         // Simply drop the packet.
         NS_LOG_DEBUG(this << " transceiver not in RX state");
-        m_phyRxDropTrace(p);
+        // m_phyRxDropTrace(p, m_priority);
 
         // Add the signal power to the interference, anyway.
         m_signal->AddSignal(lrWpanRxParams->psd);
@@ -605,7 +605,7 @@ LrWpanPhy::EndRx(Ptr<SpectrumSignalParameters> par)
             NS_LOG_DEBUG("PACKET DROPPED");
             // The packet was destroyed due to interference, post-rx corruption or
             // cancelled, therefore drop it.
-            m_phyRxDropTrace(currentPacket);
+            // m_phyRxDropTrace(currentPacket, m_priority);
             m_currentRxPacket = std::make_pair(nullptr, true);
 
             if (!m_isRxCanceled)
@@ -1898,6 +1898,19 @@ LrWpanPhy::SetPostReceptionErrorModel(const Ptr<ErrorModel> em)
 {
     NS_LOG_FUNCTION(this << em);
     m_postReceptionErrorModel = em;
+}
+
+
+uint8_t
+LrWpanPhy::GetPriority()
+{
+    return m_priority;
+}
+
+void
+LrWpanPhy::SetPriority(uint8_t priority)
+{
+    m_priority = priority;
 }
 
 } // namespace lrwpan
