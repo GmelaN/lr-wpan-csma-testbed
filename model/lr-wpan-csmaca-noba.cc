@@ -282,10 +282,10 @@ LrWpanCsmaCaNoba::RandomBackoffDelay()
     symbolRate = (uint64_t)m_mac->GetPhy()->GetDataOrSymbolRate(false); // symbols per second
 
     // We should not recalculate the random backoffPeriods if we are in a slotted CSMA-CA and the
-    // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not receiveed
+    // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not received
     if (m_backoffCount == 0 || m_freezeBackoff)
     {
-        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::CW[m_TP].second);
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
     randomBackoff =
@@ -536,19 +536,22 @@ LrWpanCsmaCaNoba::SetBackoffCounter()
     m_collisions++;
     m_csmaCaCollisionTrace(m_TP, m_collisions);
     // TODO: vaildate this
+
     if(m_collisions % 2 == 0) {
         NS_LOG_DEBUG("collision is even: modifying parameters...");
-        LrWpanCsmaCaNoba::SW[m_TP] += 2;
-        LrWpanCsmaCaNoba::CW[m_TP].second = 
-            std::min(LrWpanCsmaCaNoba::CW[m_TP].first + LrWpanCsmaCaNoba::SW[m_TP], LrWpanCsmaCaNoba::WL[m_TP]);
+        SW[m_TP] += 2;
 
-        for (int i = m_TP - 1; i >= 0; i--) { // Adjust lower TPs
+        CW[m_TP].second =
+            std::min(CW[m_TP].first, WL[m_TP]);
+
+        for (int i = m_TP - 1; i >= 0; i--)
+        { // Adjust lower TPs
             CW[i].first = CW[i + 1].second + 1;
             CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
         }
 
         NS_LOG_DEBUG(
-            "CSMA/CA-NOBA: MODIFIED values: \n"
+            "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
             <<
             "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
             <<
@@ -568,11 +571,11 @@ LrWpanCsmaCaNoba::SetBackoffCounter()
         );
     }
 
-    if(LrWpanCsmaCaNoba::CW[m_TP].second > LrWpanCsmaCaNoba::WL[m_TP]) {
-        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::WL[m_TP]);
+    if(CW[m_TP].second > WL[m_TP]) {
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP] + SW[m_TP]);
     }
     else {
-        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaNoba::CW[m_TP].first, LrWpanCsmaCaNoba::CW[m_TP].second);
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second + SW[m_TP]);
     }
 
     NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
