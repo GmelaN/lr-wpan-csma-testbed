@@ -54,30 +54,48 @@ LrWpanCsmaCaSwNoba::GetTypeId()
 }
 
 void
-LrWpanCsmaCaSwNoba::InitializeGlobals()
+LrWpanCsmaCaSwNoba::InitializeGlobals(bool init)
 {
     for(int i = 0; i < TP_COUNT; i++)
     {
-        LrWpanCsmaCaSwNoba::SW[i] = 1;
+        std::cout << SW[i] << '\t';
     }
-    LrWpanCsmaCaSwNoba::CW[7].first = 1;
-
-    for(int i = TP_COUNT - 1; i >= 0; i--) {
-        LrWpanCsmaCaSwNoba::WL[i] = 8 * (8 - i); // 8, 16, 24, 32, 40, 48, 56, 64
+    if (init)
+    {
+        for(int i = 0; i < TP_COUNT; i++)
+        {
+            SW[i] = 1;
+        }
+        std::cout << '\n';
     }
 
-    for(int i = TP_COUNT - 1; i >= 0; i--) {
-        if(i > 0) {
-            LrWpanCsmaCaSwNoba::CW[i].second = // CW_max,i
-                std::min(LrWpanCsmaCaSwNoba::CW[i].first + LrWpanCsmaCaSwNoba::SW[i], LrWpanCsmaCaSwNoba::WL[i]);
+    WL[7] = 16;
+    WL[6] = 28;
+    WL[5] = 38;
+    WL[4] = 46;
+    WL[3] = 52;
+    WL[2] = 56;
+    WL[1] = 60;
+    WL[0] = 64;
 
-            LrWpanCsmaCaSwNoba::CW[i-1].first = // CW_min,i-1
-                LrWpanCsmaCaSwNoba::CW[i].second + 1;
+    CW[7].first = 1;
+    for(int i = TP_COUNT - 1; i >= 0; i--)
+    {
+        if(i > 0)
+        {
+            CW[i].second = // CW_max,i
+                std::min(CW[i].first + SW[i], WL[i]);
+
+            CW[i-1].first = // CW_min,i-1
+                CW[i].second + 1;
         }
         else {
-            LrWpanCsmaCaSwNoba::CW[i].second =
-                std::min(LrWpanCsmaCaSwNoba::CW[i].first + LrWpanCsmaCaSwNoba::SW[i], LrWpanCsmaCaSwNoba::WL[i]);
+            CW[i].second =
+                std::min(CW[i].first + SW[i], WL[i]);
         }
+
+        COLLISION_COUNT[i] = 0;
+        SUCCESS_COUNT[i] = 0;
     }
 
     NS_LOG_DEBUG(
@@ -109,8 +127,8 @@ LrWpanCsmaCaSwNoba::LrWpanCsmaCaSwNoba(uint8_t priority)
 
     for(int i = 0; i < TP_COUNT; i++)
     {
-        LrWpanCsmaCaSwNoba::SUCCESS_COUNT[i] = 0;
-        LrWpanCsmaCaSwNoba::COLLISION_COUNT[i] = 0;
+        SUCCESS_COUNT[i] = 0;
+        COLLISION_COUNT[i] = 0;
     }
 
     InitializeGlobals(true);
@@ -245,7 +263,7 @@ LrWpanCsmaCaSwNoba::Start()
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
 
     m_collisions = 0; // collision counter C
-    m_backoffCount = m_random->GetInteger(LrWpanCsmaCaSwNoba::CW[m_TP].first, LrWpanCsmaCaSwNoba::CW[m_TP].second); // backoff counter B
+    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second + SW[m_TP]); // backoff counter B
     NS_LOG_DEBUG("Using CSMA-CA NOBA, bakcoff count is: " << m_backoffCount);
 
     // m_coorDest to decide between incoming and outgoing superframes times
@@ -285,7 +303,7 @@ LrWpanCsmaCaSwNoba::RandomBackoffDelay()
     // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not receiveed
     if (m_backoffCount == 0 || m_freezeBackoff)
     {
-        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaSwNoba::CW[m_TP].first, LrWpanCsmaCaSwNoba::CW[m_TP].second);
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
     randomBackoff =
@@ -527,54 +545,137 @@ LrWpanCsmaCaSwNoba::GetBatteryLifeExtension()
 void
 LrWpanCsmaCaSwNoba::SetBackoffCounter()
 {
-    LrWpanCsmaCaSwNoba::COLLISION_COUNT[m_TP]++;
+    COLLISION_COUNT[m_TP]++;
     m_collisions++;
     m_csmaCaCollisionTrace(m_TP, m_collisions);
-
-    if(LrWpanCsmaCaSwNoba::COLLISION_COUNT[m_TP] == 0)
+    
+    if(COLLISION_COUNT[m_TP] == 0)
     {
-        LrWpanCsmaCaSwNoba::SW[m_TP] = 1;
+        SW[m_TP] = 1;
     }
-    else
+    else if (COLLISION_COUNT[m_TP] <= 4)
     {
-        LrWpanCsmaCaSwNoba::SW[m_TP] =
-            pow(2, COLLISION_COUNT[m_TP])
+        SW[m_TP] =
+            pow(2, COLLISION_COUNT[m_TP] + 1)
             - std::min(round(std::tgamma(COLLISION_COUNT[m_TP] + 1)), pow(2, COLLISION_COUNT[m_TP]))
         ;
     }
+    // with over 4 collisions we don't adjust SW anymore.
     this->AdjustCW();
 
-    if(LrWpanCsmaCaSwNoba::CW[m_TP].second > LrWpanCsmaCaSwNoba::WL[m_TP]) {
-        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaSwNoba::CW[m_TP].first, LrWpanCsmaCaSwNoba::WL[m_TP]);
+    if(CW[m_TP].second > WL[m_TP])
+    {
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP] + SW[m_TP]);
     }
-    else {
-        m_backoffCount = m_random->GetInteger(LrWpanCsmaCaSwNoba::CW[m_TP].first, LrWpanCsmaCaSwNoba::CW[m_TP].second);
+    else
+    {
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second + SW[m_TP]);
     }
 
     NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
+    NS_LOG_DEBUG(
+        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        <<
+        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+        <<
+        '\n'
+        <<
+        "CW: "
+        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+        <<
+        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    );
 }
 
 void
 LrWpanCsmaCaSwNoba::AdjustSW()
 {
+    m_collisions = 0;
+    // decrease collision count by 1.
+    if (COLLISION_COUNT[m_TP] >= 1)
+    {
+        COLLISION_COUNT[m_TP]--;
+    }
     // adjust SW if three success TX occured
     if(COLLISION_COUNT[m_TP] == 0)
     {
-        LrWpanCsmaCaSwNoba::SW[m_TP] = 1;
+        SW[m_TP] = 1;
         return;
     }
-    LrWpanCsmaCaSwNoba::SW[m_TP] =
-        pow(2, COLLISION_COUNT[m_TP]) - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
+    // with collisions over 4 we don't adjust SW anymore.
+    if (COLLISION_COUNT[m_TP] > 4)
+    {
+        return;
+    }
+    //
+    SW[m_TP] =
+        pow(2, COLLISION_COUNT[m_TP])
+            - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
+
+    NS_LOG_DEBUG(
+        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        <<
+        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+        <<
+        '\n'
+        <<
+        "CW: "
+        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+        <<
+        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    );
 }
 
 void
 LrWpanCsmaCaSwNoba::AdjustCW()
 {
-    for (int i = m_TP - 1; i >= 0; i--)  // Adjust lower TPs
-    {
+    CW[m_TP].second =
+        std::min(CW[m_TP].first, WL[m_TP]);
+
+    for (int i = m_TP - 1; i >= 0; i--)
+    { // Adjust lower TPs
         CW[i].first = CW[i + 1].second + 1;
         CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
+
+    // for (int i = m_TP; i >= 0; i--)  // Adjust lower TPs
+    // {
+    //     CW[i].first = CW[i + 1].second + 1;
+    //     CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
+    // }
+    NS_LOG_DEBUG(
+        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        <<
+        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+        <<
+        '\n'
+        <<
+        "CW: "
+        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+        <<
+        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    );
 }
 
 } // namespace lrwpan
