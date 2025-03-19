@@ -1029,10 +1029,12 @@ LrWpanMac::SendOneBeacon()
     // initalize parameters(CSMA/CA - NOBA)
     if(m_csmaOption == CSMA_NOBA)
     {
+        NS_LOG_DEBUG("(CSMA/CA NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
         LrWpanCsmaCaNoba::InitializeGlobals(true);
     }
     else if(m_csmaOption == CSMA_SW_NOBA)
     {
+        NS_LOG_DEBUG("(CSMA/CA SW-NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
         LrWpanCsmaCaSwNoba::InitializeGlobals(true);
     }
 
@@ -2038,20 +2040,20 @@ LrWpanMac::SetCsmaCa(Ptr<LrWpanCsmaCaCommon> csmaCa)
     m_csmaCa = csmaCa;
 
     // identify csma type
-    if (DynamicCast<LrWpanCsmaCa>(csmaCa)) {
-        m_csmaOption = CSMA_ORIGINAL;
-    }
-    else if (DynamicCast<LrWpanCsmaCaNoba>(csmaCa)) {
-        m_csmaOption = CSMA_NOBA;
-        LrWpanCsmaCaNoba::InitializeGlobals(true);
-    }
-    else if (DynamicCast<LrWpanCsmaCaSwNoba>(csmaCa)) {
-        m_csmaOption = CSMA_SW_NOBA;
-        LrWpanCsmaCaSwNoba::InitializeGlobals(true);
-    }
-    else {
-        NS_ASSERT_MSG(false, "invaild CSMA option found.");
-    }
+    // if (DynamicCast<LrWpanCsmaCaNoba>(csmaCa)) {
+    //     m_csmaOption = CSMA_NOBA;
+    //     LrWpanCsmaCaNoba::InitializeGlobals(true);
+    // }
+    // else if (DynamicCast<LrWpanCsmaCaSwNoba>(csmaCa)) {
+    //     m_csmaOption = CSMA_SW_NOBA;
+    //     LrWpanCsmaCaSwNoba::InitializeGlobals(true);
+    // }
+    // else if (DynamicCast<LrWpanCsmaCa>(csmaCa)) {
+    //     m_csmaOption = CSMA_ORIGINAL;
+    // }
+    // else {
+    //     NS_ASSERT_MSG(false, "invaild CSMA option found.");
+    // }
 
     NS_LOG_DEBUG("using CSMA/CA: " << m_csmaOption);
 }
@@ -4056,5 +4058,14 @@ LrWpanMac::PhyRxDropTrace(Ptr<const Packet> p)
 
 
 }
+
+
+void
+LrWpanMac::SetCsmaCaOption(CsmaOption option)
+{
+    m_csmaOption = option;
+}
+
+
 } // namespace lrwpan
 } // namespace ns3
