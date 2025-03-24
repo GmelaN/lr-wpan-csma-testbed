@@ -13,6 +13,8 @@
 #include "lr-wpan-mac.h"
 #include "lr-wpan-csmaca-common.h"
 
+#define TP_COUNT 8
+
 #include <ns3/event-id.h>
 #include <ns3/object.h>
 
@@ -32,7 +34,6 @@ namespace lrwpan
 class LrWpanCsmaCaStandard : public LrWpanCsmaCaCommon
 {
   static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
-
 
   public:
     /**
