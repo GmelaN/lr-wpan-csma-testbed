@@ -49,10 +49,10 @@ class LrWpanCsmaCaCommon;
  */
 enum CsmaOption
 {
-    CSMA_ORIGINAL = 0,
-    CSMA_NOBA = 1,
-    CSMA_SW_NOBA = 2,
-    CSMA_RL_NOBA = 3
+    CSMA_ORIGINAL = 0, // IEEE 802.15.4 CSMA/CA
+    CSMA_NOBA = 1,     // CSMA/CA NOBA
+    CSMA_SW_NOBA = 2,  // CSMA/CA SW-NOBA
+    CSMA_STANDARD = 3  // IEEE 802.15.6 CSMA/CA
 };
 
 /**
