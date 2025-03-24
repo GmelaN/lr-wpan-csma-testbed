@@ -56,17 +56,17 @@ LrWpanCsmaCaSwNoba::GetTypeId()
 void
 LrWpanCsmaCaSwNoba::InitializeGlobals(bool init)
 {
-    for(int i = 0; i < TP_COUNT; i++)
-    {
-        std::cout << SW[i] << '\t';
-    }
+    // for(int i = 0; i < TP_COUNT; i++)
+    // {
+    //     std::cout << SW[i] << '\t';
+    // }
     if (init)
     {
         for(int i = 0; i < TP_COUNT; i++)
         {
             SW[i] = 1;
         }
-        std::cout << '\n';
+        // std::cout << '\n';
     }
 
     WL[7] = 16;
@@ -263,7 +263,7 @@ LrWpanCsmaCaSwNoba::Start()
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
 
     m_collisions = 0; // collision counter C
-    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second + SW[m_TP]); // backoff counter B
+    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
     NS_LOG_DEBUG("Using CSMA-CA NOBA, bakcoff count is: " << m_backoffCount);
 
     // m_coorDest to decide between incoming and outgoing superframes times
@@ -565,11 +565,11 @@ LrWpanCsmaCaSwNoba::SetBackoffCounter()
 
     if(CW[m_TP].second > WL[m_TP])
     {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP] + SW[m_TP]);
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
     }
     else
     {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second + SW[m_TP]);
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
     NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
@@ -644,19 +644,13 @@ void
 LrWpanCsmaCaSwNoba::AdjustCW()
 {
     CW[m_TP].second =
-        std::min(CW[m_TP].first, WL[m_TP]);
+        std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
 
-    for (int i = m_TP - 1; i >= 0; i--)
-    { // Adjust lower TPs
+    for (int i = m_TP - 1; i >= 0; i--)  // Adjust lower TPs
+    {
         CW[i].first = CW[i + 1].second + 1;
         CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
-
-    // for (int i = m_TP; i >= 0; i--)  // Adjust lower TPs
-    // {
-    //     CW[i].first = CW[i + 1].second + 1;
-    //     CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
-    // }
     NS_LOG_DEBUG(
         "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
         <<

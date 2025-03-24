@@ -542,7 +542,7 @@ LrWpanCsmaCaNoba::SetBackoffCounter()
         SW[m_TP] += 2;
 
         CW[m_TP].second =
-            std::min(CW[m_TP].first, WL[m_TP]);
+            std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
 
         for (int i = m_TP - 1; i >= 0; i--)
         { // Adjust lower TPs
@@ -572,10 +572,10 @@ LrWpanCsmaCaNoba::SetBackoffCounter()
     }
 
     if(CW[m_TP].second > WL[m_TP]) {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP] + SW[m_TP]);
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
     }
     else {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second + SW[m_TP]);
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
     NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
