@@ -6,8 +6,6 @@
  * Author:  Jo Seoung Hyeon <gmelan@gnu.ac.kr>
  */
 
-#include "../src/spectrum/model/single-model-spectrum-channel.h"
-
 #include <ns3/constant-position-mobility-model.h>
 #include <ns3/core-module.h>
 #include <ns3/log.h>
@@ -20,47 +18,81 @@
 #include <ns3/simulator.h>
 #include <ns3/single-model-spectrum-channel.h>
 
+
+#include <iostream>
+#include <fstream>
+
+#include <ns3/lr-wpan-csmaca-sw-noba.h>
+#include <ns3/lr-wpan-delay-tag.h>
+#include <ns3/lr-wpan-priority-tag.h>
+
+// #include "configuration.h"
+
 #define CSMA_CA_BEB 0
 #define CSMA_CA_NOBA 1
 #define CSMA_CA_SW_NOBA 2
 
-#define CSMA_CA CSMA_CA_NOBA
+#define CSMA_CA CSMA_CA_SW_NOBA
 
-
-
-
-#include <iostream>
-
-#define NODE_COUNT 9 // 8 priorities, 10 nodes per priority, INCLUDING COORDINATOR
+#define NODE_COUNT (8+1)*5 // 8 priorities, 10 nodes per priority, EACH PAN, INCLUDING COORDINATOR
 #define PACKET_SIZE 30
 #define PAN_ID 5
 #define COORD_ADDR 1
 
-#define SIM_TIME 2
+#define SIM_TIME 300
 
 using namespace ns3;
 using namespace ns3::lrwpan;
 
-static uint32_t requestTX[TP_COUNT] = {0, };
-static uint32_t sentTX[TP_COUNT] = {0, };
-static uint32_t successTX[TP_COUNT] = {0, };
-static uint32_t collisions[TP_COUNT] = {0, };
+static uint32_t requestTX[TP_COUNT];
+static uint32_t sentTX[TP_COUNT];
+static uint32_t successTX[TP_COUNT];
+static uint32_t collisions[TP_COUNT];
 
-static uint32_t failTX[TP_COUNT] = {0, };
-static uint32_t successRX[TP_COUNT] = {0, };
-static uint32_t failRX[TP_COUNT] = {0, };
+static uint32_t failTX[TP_COUNT];
+static uint32_t successRX[TP_COUNT];
+static uint32_t failRX[TP_COUNT];
+
+static std::vector<double> rxDelay[TP_COUNT];
+
+
+void
+progress()
+{
+    static int counter = 0;
+    NS_LOG_UNCOND(counter << "%");
+    counter++;
+    Simulator::Schedule(
+        Seconds(SIM_TIME / 100),
+        progress
+    );
+}
+
+
+void
+SetupLogComponents()
+{
+    LogComponentEnableAll(LOG_PREFIX_TIME);
+    LogComponentEnableAll(LOG_PREFIX_FUNC);
+    // LogComponentEnable("LrWpanMac", LOG_LEVEL_DEBUG);
+    // LogComponentEnable("LrWpanPhy", LOG_LEVEL_DEBUG);
+    // LogComponentEnable("LrWpanCsmaCaSwNoba", LOG_LEVEL_DEBUG);
+    // LogComponentEnable("LrWpanCsmaCaNoba", LOG_LEVEL_DEBUG);
+    // LogComponentEnable("LrWpanCsmaCa", LOG_LEVEL_DEBUG);
+}
+
 
 void
 BeaconIndication(MlmeBeaconNotifyIndicationParams params)
 {
-    NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " secs | Received BEACON packet of size ");
+    // NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " secs | Received BEACON packet of size ");
 }
 
 void
 DataIndication(McpsDataIndicationParams params, Ptr<Packet> p)
 {
-    NS_LOG_UNCOND(Simulator::Now().GetSeconds()
-                  << " secs | Received DATA packet of size " << p->GetSize());
+    // NS_LOG_UNCOND(Simulator::Now().GetSeconds()
+                  // << " secs | Received DATA packet of size " << p->GetSize());
 }
 
 void
@@ -68,22 +100,21 @@ TransEndIndication(McpsDataConfirmParams params)
 {
     // In the case of transmissions with the Ack flag activated, the transaction is only
     // successful if the Ack was received.
-    if (params.m_status == MacStatus::SUCCESS)
-     {
-         NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " secs | Transmission successfully sent");
-     }
-     if (params.m_status == MacStatus::NO_ACK)
-     {
-        NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " secs | TRANSMISSION ENDED WITH NO ACK");
-     }
-
+    // if (params.m_status == MacStatus::SUCCESS)
+     // {
+         // NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " secs | Transmission successfully sent");
+     // }
+     // if (params.m_status == MacStatus::NO_ACK)
+     // {
+        // NS_LOG_UNCOND(Simulator::Now().GetSeconds() << " secs | TRANSMISSION ENDED WITH NO ACK");
+     // }
 }
 
 void
 DataIndicationCoordinator(McpsDataIndicationParams params, Ptr<Packet> p)
  {
-     NS_LOG_UNCOND(Simulator::Now().GetSeconds()
-                   << "s Coordinator Received DATA packet (size " << p->GetSize() << " bytes)");
+     // NS_LOG_UNCOND(Simulator::Now().GetSeconds()
+     //               << "s Coordinator Received DATA packet (size " << p->GetSize() << " bytes)");
  }
 
 void
@@ -95,27 +126,42 @@ StartConfirm(MlmeStartConfirmParams params)
     // }
 }
 
-
 void
 CsmaCaCollision(uint8_t TP, uint32_t collision)
 {
+    // NS_LOG_UNCOND("\t\tPRIORITY " << (uint32_t) TP << " GOT COLLISION: " << collisions[TP]);
     collisions[TP]++;
-    // std::cout << "\t\tPRIORITY " << TP << "GOT COLLISION: " << collisions[TP] << std::endl;
 }
 
-
 void
-MacRxDrop(Ptr<const Packet> pkt, uint8_t TP) // MacRxDrop: fail RX
+PhyRxDrop(Ptr<const Packet> pkt, uint8_t TP) // PhyRxDrop: fail RX
 {
-    // includes wrong MAC address
+    // count: RX new packet if PHY in RX state(packet collision)
     failRX[TP]++;
 }
 
-
 void
-MacRx(Ptr<const Packet> pkt, uint8_t TP) // MacRx: success RX
+MacRx(Ptr<const Packet> p, uint8_t TP) // MacRx: success RX
 {
     successRX[TP]++;
+
+    LrWpanDelayTag tag1;
+    p->PeekPacketTag(tag1);
+
+    LrWpanPriorityTag tag2;
+    p->PeekPacketTag(tag2);
+
+    double issuedTime = tag1.Get();
+    double current = Simulator::Now().GetMilliSeconds();
+
+    uint8_t senderTP = tag2.Get();
+    // std::cout << "issuedTime: " << (double) issuedTime << std::endl;
+    // std::cout << "current: " << (double) current << std::endl;
+
+    double delay = current - issuedTime;
+    // std::cout << "DELAY: " << (double) delay << std::endl;
+
+    rxDelay[senderTP].push_back(delay);
 }
 
 void
@@ -150,8 +196,6 @@ TxEnqueue(Ptr<const Packet> pkt)
     a++;
 }
 
-
-
 void
 GenerateTraffic(NetDeviceContainer devices, double interval)
 {
@@ -166,12 +210,23 @@ GenerateTraffic(NetDeviceContainer devices, double interval)
 
         Ptr<LrWpanNetDevice> dev = DynamicCast<LrWpanNetDevice>(*i);
         Ptr<Packet> p = Create<Packet>(PACKET_SIZE);
+
+        LrWpanDelayTag tag1;
+        tag1.Set(Simulator::Now().GetMilliSeconds());
+        p->AddPacketTag(tag1);
+
+        LrWpanPriorityTag tag2;
+        tag2.Set(dev->GetMac()->getPriority());
+        p->AddPacketTag(tag2);
+
+
         McpsDataRequestParams params2;
         params2.m_dstPanId = PAN_ID;
         params2.m_srcAddrMode = SHORT_ADDR;
         params2.m_dstAddrMode = SHORT_ADDR;
         params2.m_dstAddr = Mac16Address(COORD_ADDR);
-        params2.m_msduHandle = (msduHandle++) % (UINT8_MAX + 1);
+        msduHandle = (msduHandle + 1) % (UINT8_MAX + 1);
+        params2.m_msduHandle = msduHandle;
         params2.m_txOptions = TX_OPTION_ACK;  // Enable direct transmission with Ack
 
         Simulator::ScheduleNow(
@@ -182,9 +237,8 @@ GenerateTraffic(NetDeviceContainer devices, double interval)
         );
     }
 
-    Simulator::ScheduleWithContext(
-        2,
-        Simulator::Now() + Time(interval),
+    Simulator::Schedule(
+        Seconds(interval),
         GenerateTraffic,
         devices,
         interval
@@ -196,17 +250,10 @@ main(int argc, char* argv[])
 {
     ns3::RngSeedManager::SetSeed(42);
 
-    LogComponentEnableAll(LOG_PREFIX_TIME);
-    LogComponentEnableAll(LOG_PREFIX_FUNC);
-    LogComponentEnable("LrWpanMac", LOG_LEVEL_ALL);
-    LogComponentEnable("LrWpanPhy", LOG_LEVEL_DEBUG);
-    LogComponentEnable("LrWpanCsmaCaNoba", LOG_LEVEL_ALL);
-    LogComponentEnable("LrWpanCsmaCa", LOG_LEVEL_ALL);
+    SetupLogComponents();
 
     // LrWpanHelper lrWpanHelper;
     NodeContainer nodes;
-    nodes.Create(NODE_COUNT); // first one is coordinator
-
 
     ////////////////////////////// 1. SETUP HELPER //////////////////////////////
     Ptr<SingleModelSpectrumChannel> channel = Create<SingleModelSpectrumChannel>();
@@ -221,10 +268,14 @@ main(int argc, char* argv[])
     NetDeviceContainer devices;
 
 
+    nodes.Create(NODE_COUNT); // first one is coordinator
+    uint16_t coordAddr = COORD_ADDR;
+
+
     uint8_t priority = 7;
-    uint16_t address = 1;
-    Vector center(0, 0, 0);
-    double radius = 5;
+    uint16_t address = coordAddr + 1;
+    // Vector center(0, 0, 0);
+    // double radius = 5;
     for (int i = 0; i < NODE_COUNT; i++)
     {
         //////////////////// MAKE NEW NETDEVICE ////////////////////
@@ -248,22 +299,13 @@ main(int argc, char* argv[])
         //
         // dev->GetPhy()->SetMobility(mob);
 
-
-        //////////////////// SETUP CSMA/CA ////////////////////
-        #if CSMA_CA == CSMA_CA_BEB
-            Ptr<LrWpanCsmaCa> csma = CreateObject<LrWpanCsmaCa>(priority % 8);
-        #endif
-        #if CSMA_CA == CSMA_CA_NOBA
-            Ptr<LrWpanCsmaCaNoba> csma = CreateObject<LrWpanCsmaCaNoba>(priority % 8);
-        #endif
-
-        dev->SetCsmaCa(csma);
         dev->SetChannel(channel);
         dev->SetNode(nodes.Get(i));
+
         nodes.Get(i)->AddDevice(dev);
 
-
         ////////// SET ADDRESS AND ASSOCIATED COORDINATOR //////////
+        ///// this setting must prior CSMA/CA
         dev->GetMac()->SetPanId(PAN_ID);
         dev->GetMac()->SetAssociatedCoor(Mac16Address(COORD_ADDR));
         if (i == 0) // coordinator
@@ -277,6 +319,32 @@ main(int argc, char* argv[])
             dev->GetMac()->setPriority(priority % 8);
         }
 
+        //////////////////// SETUP CSMA/CA ////////////////////
+        Ptr<LrWpanCsmaCaCommon> csma;
+        #if CSMA_CA == CSMA_CA_BEB
+        csma = CreateObject<LrWpanCsmaCa>(priority % 8);
+        dev->GetMac()->SetCsmaCaOption(CSMA_ORIGINAL);
+        #elif CSMA_CA == CSMA_CA_NOBA
+        csma = CreateObject<LrWpanCsmaCaNoba>(priority % 8);
+        dev->GetMac()->SetCsmaCaOption(CSMA_NOBA);
+        #elif CSMA_CA == CSMA_CA_SW_NOBA
+        csma = CreateObject<LrWpanCsmaCaSwNoba>(priority % 8);
+        dev->GetMac()->SetCsmaCaOption(CSMA_SW_NOBA);
+        #else
+        NS_ASSERT_MSG(false, "UNKNOWN CSMA CA");
+        #endif
+
+        if (i != 0)
+        {
+            // node
+            dev->SetCsmaCa(csma);
+        }
+        else
+        {
+            // coordinator
+            Ptr<LrWpanCsmaCa> csmaa = CreateObject<LrWpanCsmaCa>(7);
+            dev->SetCsmaCa(csmaa);
+        }
 
         //////////////////// SET CALLBACKS ////////////////////
         MlmeStartConfirmCallback cb0;
@@ -291,7 +359,7 @@ main(int argc, char* argv[])
         cb3 = MakeCallback(&BeaconIndication);
         dev->GetMac()->SetMlmeBeaconNotifyIndicationCallback(cb3);
 
-        if(i == 0) // coordinator
+        if (i == 0) // coordinator
         {
             McpsDataIndicationCallback cb5;
             cb5 = MakeCallback(&DataIndicationCoordinator);
@@ -314,80 +382,133 @@ main(int argc, char* argv[])
             cb4 = MakeCallback(&DataIndication);
             dev->GetMac()->SetMcpsDataIndicationCallback(cb4);
         }
-        dev->GetMac()->TraceConnectWithoutContext("MacRxDrop", MakeCallback(&MacRxDrop));   // dropped RX
-        dev->GetMac()->TraceConnectWithoutContext("MacRx", MakeCallback(&MacRx));           // received RX(DATA ONLY)
-        dev->GetMac()->TraceConnectWithoutContext("MacTxEnqueue", MakeCallback(&MacTxReq)); // requested TX
-        dev->GetMac()->TraceConnectWithoutContext("MacTxOk", MakeCallback(&MacTxOk));       // sent TX & received ACK
-        dev->GetMac()->TraceConnectWithoutContext("MacTx", MakeCallback(&MacTxSent));       // sent TX
-        dev->GetMac()->TraceConnectWithoutContext("MacTxDrop", MakeCallback(&MacTxDrop));   // dropped TX (ACK timeout | channel access failure)
+        dev->GetPhy()->TraceConnectWithoutContext("PhyRxDrop",
+                                                  MakeCallback(&PhyRxDrop)); // dropped RX
+        dev->GetMac()->TraceConnectWithoutContext("MacRx",
+                                                  MakeCallback(&MacRx)); // received RX(DATA ONLY)
+        dev->GetMac()->TraceConnectWithoutContext("MacTxEnqueue",
+                                                  MakeCallback(&MacTxReq)); // requested TX
+        dev->GetMac()->TraceConnectWithoutContext("MacTxOk",
+                                                  MakeCallback(&MacTxOk)); // sent TX & received ACK
+        dev->GetMac()->TraceConnectWithoutContext("MacTx", MakeCallback(&MacTxSent)); // sent TX
+        dev->GetMac()->TraceConnectWithoutContext(
+            "MacTxDrop",
+            MakeCallback(&MacTxDrop)); // dropped TX (ACK timeout | channel access failure)
 
-#if CSMA_CA == CSMA_CA_BEB
-        DynamicCast<LrWpanCsmaCa>(dev->GetCsmaCa())->TraceConnectWithoutContext("csmaCaCollisionTrace", MakeCallback(&CsmaCaCollision));
-#endif
-#if CSMA_CA == CSMA_CA_NOBA
-        DynamicCast<LrWpanCsmaCaNoba>(dev->GetCsmaCa())->TraceConnectWithoutContext("csmaCaNobaCollisionTrace", MakeCallback(&CsmaCaCollision));
-#endif
-
+        if (i == 0)
+        {
+            DynamicCast<LrWpanCsmaCa>(dev->GetCsmaCa())
+                ->TraceConnectWithoutContext("csmaCaCollisionTrace",
+                                             MakeCallback(&CsmaCaCollision));
+        }
+        else
+        {
+            #if CSMA_CA == CSMA_CA_BEB
+            DynamicCast<LrWpanCsmaCa>(dev->GetCsmaCa())
+                ->TraceConnectWithoutContext("csmaCaCollisionTrace",
+                                             MakeCallback(&CsmaCaCollision));
+            #elif CSMA_CA == CSMA_CA_NOBA
+            DynamicCast<LrWpanCsmaCaNoba>(dev->GetCsmaCa())
+                ->TraceConnectWithoutContext("csmaCaNobaCollisionTrace",
+                                             MakeCallback(&CsmaCaCollision));
+            #elif CSMA_CA == CSMA_CA_SW_NOBA
+            DynamicCast<LrWpanCsmaCaSwNoba>(dev->GetCsmaCa())
+                ->TraceConnectWithoutContext("csmaCaSwNobaCollisionTrace",
+                                             MakeCallback(&CsmaCaCollision));
+            #else
+            NS_ASSERT_MSG(false, "Unknown CSMA CA");
+            #endif
+        }
         // ADD DEVICE TO CONTAINER
         devices.Add(dev);
-
         priority++;
     }
 
-
     ////////////////////////////// 5. DATA TRANSMISSION //////////////////////////////
-    Simulator::Schedule(
-        Seconds(1.0),
-        &GenerateTraffic,
-        devices,
-        0.5
-    );
+    Simulator::Schedule(Seconds(1.0), &GenerateTraffic, devices, 0.5);
 
     Simulator::Schedule(
-        Seconds(SIM_TIME - 0.001),
+        Seconds(SIM_TIME - 0.00001),
         MakeEvent(
             [] () mutable -> void
             {
                 std::cout << std::endl << std::endl << std::endl;
 
-                std::cout << "TRAFFIC PRIORITY\t";
+                std::string str;
+                switch (CSMA_CA)
+                {
+                    case CSMA_CA_BEB:
+                        str = "CSMA/CA BEB";
+                        break;
+                    case CSMA_CA_NOBA:
+                        str = "CSMA/CA NOBA";
+                        break;
+                    case CSMA_CA_SW_NOBA:
+                        str = "CSMA/CA SW-NOBA";
+                        break;
+                    default:
+                        str = "UNKNOWN";
+                        break;
+                }
+                std::cout << "SIMULATION DURATION: " << SIM_TIME << std::endl;
+                std::cout << "CSMA/CA CONFIGURATION: " << str << std::endl;
+                std::cout << "NODE COUNT: " << NODE_COUNT << std::endl;
+                std::cout << "PACKET SIZE: " << PACKET_SIZE << std::endl;
+
                 for (int i = 0; i < TP_COUNT; i++)
                 {
-                    std::cout << "TP" << i << "\t";
+                    std::cout << "TP" << i << "\t\t";
                 }
                 std::cout << std::endl << "REQUESTED TX\t\t";
                 for(int i = 0; i < TP_COUNT; i++)
                 {
-                    std::cout << requestTX[i] << '\t';
+                    std::cout << requestTX[i] << "\t";
                 }
                 std::cout << "\nSUCCESS TX\t\t\t";
                 for(int i = 0; i < TP_COUNT; i++)
                 {
-                    std::cout << successTX[i] << '\t';
+                    std::cout << successTX[i] << "\t";
                 }
                 std::cout << "\nFAILED TX\t\t\t";
                 for(int i = 0; i < TP_COUNT; i++)
                 {
-                    std::cout << failTX[i] << '\t';
+                    std::cout << failTX[i] << "\t\t";
                 }
                 std::cout << "\nSUCCESS RX\t\t\t";
                 for(int i = 0; i < TP_COUNT; i++)
                 {
-                    std::cout << successRX[i] << '\t';
+                    std::cout << successRX[i] << "\t\t";
                 }
                 std::cout << "\nFAILED RX\t\t\t";
                 for(int i = 0; i < TP_COUNT; i++)
                 {
-                    std::cout << failRX[i] << '\t';
+                    std::cout << failRX[i] << "\t";
                 }
                 std::cout << "\nCSMA/CA COLLISIONS\t";
                 for(int i = 0; i < TP_COUNT; i++)
                 {
-                    std::cout << collisions[i] << '\t';
+                    std::cout << collisions[i] << "\t\t";
                 }
                 std::cout << std::endl;
+
+                std::ofstream out("result.csv");
+                for(int i = 0; i < TP_COUNT; i++)
+                {
+                    out << "TP" << i << ", ";
+                    for (auto k = rxDelay[i].begin(); k != rxDelay[i].end(); k++)
+                    {
+                        out << static_cast<double>(*k) << ", ";
+                    }
+                    out << std::endl;
+                }
             }
         )
+    );
+
+
+    Simulator::Schedule(
+        Seconds(0.1),
+        progress
     );
 
     ////////////////////////////// PRINT NODE INFORMATION //////////////////////////////
