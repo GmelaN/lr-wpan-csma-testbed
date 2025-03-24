@@ -14,9 +14,10 @@
 #include "lr-wpan-mac.h"
 
 #include "lr-wpan-constants.h"
-#include "lr-wpan-csmaca.h"
 #include "lr-wpan-csmaca-noba.h"
+#include "lr-wpan-csmaca-standard.h"
 #include "lr-wpan-csmaca-sw-noba.h"
+#include "lr-wpan-csmaca.h"
 #include "lr-wpan-mac-header.h"
 #include "lr-wpan-mac-pl-headers.h"
 #include "lr-wpan-mac-trailer.h"
@@ -2741,6 +2742,10 @@ LrWpanMac::AckWaitTimeout()
         else if(m_csmaOption == CSMA_SW_NOBA) {
             // NO ACK, increase collision count and recalculate backoff counter
             DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa)->SetBackoffCounter();
+        }
+        else if(m_csmaOption == CSMA_STANDARD) {
+            // NO ACK, increase collision count and recalculate backoff counter
+            DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa)->SetBackoffCounter();
         }
         SetLrWpanMacState(MAC_CSMA);
     }
