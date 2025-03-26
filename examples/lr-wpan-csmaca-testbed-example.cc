@@ -10,7 +10,12 @@
 #include <ns3/core-module.h>
 #include <ns3/log.h>
 #include <ns3/lr-wpan-csmaca-noba.h>
+#include <ns3/lr-wpan-csmaca-standard.h>
+#include <ns3/lr-wpan-csmaca-sw-noba.h>
+#include <ns3/lr-wpan-delay-tag.h>
 #include <ns3/lr-wpan-module.h>
+#include <ns3/lr-wpan-priority-tag.h>
+#include <ns3/lr-wpan-retransmission-tag.h>
 #include <ns3/multi-model-spectrum-channel.h>
 #include <ns3/packet.h>
 #include <ns3/propagation-delay-model.h>
@@ -18,23 +23,20 @@
 #include <ns3/simulator.h>
 #include <ns3/single-model-spectrum-channel.h>
 
-
-#include <iostream>
 #include <fstream>
-
-#include <ns3/lr-wpan-csmaca-sw-noba.h>
-#include <ns3/lr-wpan-delay-tag.h>
-#include <ns3/lr-wpan-priority-tag.h>
+#include <iostream>
 
 // #include "configuration.h"
 
 #define CSMA_CA_BEB 0
 #define CSMA_CA_NOBA 1
 #define CSMA_CA_SW_NOBA 2
+#define CSMA_CA_STANDARD 3
+#define CSMA_CA_SWPER_NOBA 4
 
 #define CSMA_CA CSMA_CA_SW_NOBA
 
-#define NODE_COUNT (8+1)*5 // 8 priorities, 10 nodes per priority, EACH PAN, INCLUDING COORDINATOR
+#define NODE_COUNT 8*9+1 //  8 priorities, 10 nodes per priority, EACH PAN, INCLUDING COORDINATOR
 #define PACKET_SIZE 30
 #define PAN_ID 5
 #define COORD_ADDR 1
@@ -52,6 +54,8 @@ static uint32_t collisions[TP_COUNT];
 static uint32_t failTX[TP_COUNT];
 static uint32_t successRX[TP_COUNT];
 static uint32_t failRX[TP_COUNT];
+
+static std::vector<uint32_t> retransmissionCount[NODE_COUNT + 1];
 
 static std::vector<double> rxDelay[TP_COUNT];
 
@@ -151,6 +155,7 @@ MacRx(Ptr<const Packet> p, uint8_t TP) // MacRx: success RX
     LrWpanPriorityTag tag2;
     p->PeekPacketTag(tag2);
 
+
     double issuedTime = tag1.Get();
     double current = Simulator::Now().GetMilliSeconds();
 
@@ -179,6 +184,14 @@ MacTxSent(Ptr<const Packet> pkt, uint8_t TP)
 void
 MacTxOk(Ptr<const Packet> pkt, uint8_t TP) // MacTxOk: success TX, received ACK
 {
+    LrWpanRetransmissionTag txTag;
+    pkt->PeekPacketTag(txTag);
+
+    uint32_t reTxCount = txTag.Get();
+
+    LrWpanMacHeader header;
+    pkt->PeekHeader(header);
+    retransmissionCount[header.GetShortSrcAddr().ConvertToInt()].push_back(reTxCount);
     successTX[TP]++;
 }
 
@@ -330,6 +343,9 @@ main(int argc, char* argv[])
         #elif CSMA_CA == CSMA_CA_SW_NOBA
         csma = CreateObject<LrWpanCsmaCaSwNoba>(priority % 8);
         dev->GetMac()->SetCsmaCaOption(CSMA_SW_NOBA);
+        #elif CSMA_CA == CSMA_CA_STANDARD
+        csma = CreateObject<LrWpanCsmaCaStandard>(priority % 8);
+        dev->GetMac()->SetCsmaCaOption(CSMA_STANDARD);
         #else
         NS_ASSERT_MSG(false, "UNKNOWN CSMA CA");
         #endif
@@ -415,6 +431,10 @@ main(int argc, char* argv[])
             DynamicCast<LrWpanCsmaCaSwNoba>(dev->GetCsmaCa())
                 ->TraceConnectWithoutContext("csmaCaSwNobaCollisionTrace",
                                              MakeCallback(&CsmaCaCollision));
+            #elif CSMA_CA == CSMA_CA_STANDARD
+            DynamicCast<LrWpanCsmaCaStandard>(dev->GetCsmaCa())
+                ->TraceConnectWithoutContext("csmaCaStandardCollisionTrace",
+                                             MakeCallback(&CsmaCaCollision));
             #else
             NS_ASSERT_MSG(false, "Unknown CSMA CA");
             #endif
@@ -430,7 +450,7 @@ main(int argc, char* argv[])
     Simulator::Schedule(
         Seconds(SIM_TIME - 0.00001),
         MakeEvent(
-            [] () mutable -> void
+            [nodes] () mutable -> void
             {
                 std::cout << std::endl << std::endl << std::endl;
 
@@ -500,6 +520,18 @@ main(int argc, char* argv[])
                         out << static_cast<double>(*k) << ", ";
                     }
                     out << std::endl;
+                }
+
+                std::ofstream out2("result_retx.csv");
+                for(int i = 0; i < NODE_COUNT; i++)
+                {
+                    uint8_t tp = DynamicCast<LrWpanNetDevice>(nodes.Get(i)->GetDevice(0))->GetMac()->getPriority();
+                    out2 << "NODE " << i << " (TP "  << (int) tp << "), ";
+                    for (auto k = retransmissionCount[i].begin(); k != retransmissionCount[i].end(); k++)
+                    {
+                        out2 << *k << ", ";
+                    }
+                    out2 << std::endl;
                 }
             }
         )

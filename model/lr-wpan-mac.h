@@ -747,7 +747,7 @@ class LrWpanMac : public LrWpanMacBase
     /**
      * Get / Set node priority
      */
-    uint8_t getPriority();
+    uint8_t GetPriority();
     void setPriority(uint8_t priority);
     void PhyRxDropTrace(Ptr<const Packet> p);
 

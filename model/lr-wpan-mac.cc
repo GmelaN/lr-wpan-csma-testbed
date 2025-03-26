@@ -17,6 +17,7 @@
 #include "lr-wpan-csmaca-noba.h"
 #include "lr-wpan-csmaca-standard.h"
 #include "lr-wpan-csmaca-sw-noba.h"
+#include "lr-wpan-csmaca-swper-noba.h"
 #include "lr-wpan-csmaca.h"
 #include "lr-wpan-mac-header.h"
 #include "lr-wpan-mac-pl-headers.h"
@@ -29,6 +30,8 @@
 #include <ns3/random-variable-stream.h>
 #include <ns3/simulator.h>
 #include <ns3/uinteger.h>
+
+#include "lr-wpan-retransmission-tag.h"
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT                                                                      \
@@ -2287,7 +2290,10 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
 
             if (acceptFrame)
             {
-                if(receivedMacHdr.IsData()) m_macRxTrace(originalPkt, m_priority);
+                if(receivedMacHdr.IsData())
+                {
+                    m_macRxTrace(originalPkt, m_priority);
+                }
                 // \todo: What should we do if we receive a frame while waiting for an ACK?
                 //        Especially if this frame has the ACK request bit set, should we reply with
                 //        an ACK, possibly missing the pending ACK?
@@ -2472,6 +2478,11 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                     if (receivedMacHdr.GetSeqNum() == peekedMacHdr.GetSeqNum())
                     {
                         m_ackWaitTimeout.Cancel();
+
+                        LrWpanRetransmissionTag txTag;
+                        txTag.Set(m_retransmission);
+                        m_txPkt->AddPacketTag(txTag);
+
                         m_macTxOkTrace(m_txPkt, m_priority);
 
                         if (m_csmaOption == CSMA_SW_NOBA)
@@ -2485,6 +2496,11 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
 
                             }
                         }
+                        // if (m_csmaOption == CSMA_SWPER_NOBA)
+                        // {
+                        //     Ptr<LrWpanCsmaCaSwperNoba> csma = DynamicCast<LrWpanCsmaCaSwperNoba>(m_csmaCa);
+                        //     csma->
+                        // }
 
 
                         // TODO: check  if the IFS is the correct size after ACK.
