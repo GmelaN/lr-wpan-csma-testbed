@@ -7,7 +7,7 @@
  *  Jo Seoung Hyeon <gmelan@gnu.ac.kr>
  */
 
-#include "lr-wpan-csmaca-swper-noba.h"
+#include "lr-wpan-csmaca-swpr-noba.h"
 #include "lr-wpan-constants.h"
 
 #include <ns3/log.h>
@@ -27,34 +27,34 @@ namespace ns3
 namespace lrwpan
 {
 
-NS_LOG_COMPONENT_DEFINE("LrWpanCsmaCaSwperNoba");
-NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaSwperNoba);
+NS_LOG_COMPONENT_DEFINE("LrWpanCsmaCaSwprNoba");
+NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaSwprNoba);
 
 
-uint32_t LrWpanCsmaCaSwperNoba::SW[TP_COUNT]; // each TP
-std::pair<uint32_t, uint32_t> LrWpanCsmaCaSwperNoba::CW[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaSwperNoba::WL[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaSwperNoba::COLLISION_COUNT[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaSwperNoba::SUCCESS_COUNT[TP_COUNT]; // each TP
+uint32_t LrWpanCsmaCaSwprNoba::SW[TP_COUNT]; // each TP
+std::pair<uint32_t, uint32_t> LrWpanCsmaCaSwprNoba::CW[TP_COUNT]; // each TP
+uint32_t LrWpanCsmaCaSwprNoba::WL[TP_COUNT]; // each TP
+uint32_t LrWpanCsmaCaSwprNoba::COLLISION_COUNT[TP_COUNT]; // each TP
+uint32_t LrWpanCsmaCaSwprNoba::SUCCESS_COUNT[TP_COUNT]; // each TP
 
 
 TypeId
-LrWpanCsmaCaSwperNoba::GetTypeId()
+LrWpanCsmaCaSwprNoba::GetTypeId()
 {
-    static TypeId tid = TypeId("ns3::lrwpan::LrWpanCsmaCaSwperNoba")
-                            .AddDeprecatedName("ns3::LrWpanCsmaCaSwperNoba")
+    static TypeId tid = TypeId("ns3::lrwpan::LrWpanCsmaCaSwprNoba")
+                            .AddDeprecatedName("ns3::LrWpanCsmaCaSwprNoba")
                             .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
-                            .AddConstructor<LrWpanCsmaCaSwperNoba>()
-                            .AddTraceSource("csmaCaSwperNobaCollisionTrace",
-                                            "CSMA/CA-SWPER-NOBA collision count trace",
-                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwperNoba::m_csmaCaCollisionTrace),
+                            .AddConstructor<LrWpanCsmaCaSwprNoba>()
+                            .AddTraceSource("csmaCaSwNobaCollisionTrace",
+                                            "CSMA/CA SWPR-NOBA collision count trace",
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwprNoba::m_csmaCaCollisionTrace),
                                             "ns3::TracedCallback");
     return tid;
 }
 
 void
-LrWpanCsmaCaSwperNoba::InitializeGlobals(bool init)
+LrWpanCsmaCaSwprNoba::InitializeGlobals(bool init)
 {
     // for(int i = 0; i < TP_COUNT; i++)
     // {
@@ -121,7 +121,7 @@ LrWpanCsmaCaSwperNoba::InitializeGlobals(bool init)
 }
 
 
-LrWpanCsmaCaSwperNoba::LrWpanCsmaCaSwperNoba(uint8_t priority)
+LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba(uint8_t priority)
 {
     NS_ASSERT(priority >= 0 && priority <= 7);
 
@@ -146,18 +146,18 @@ LrWpanCsmaCaSwperNoba::LrWpanCsmaCaSwperNoba(uint8_t priority)
     m_freezeBackoff = false;
 }
 
-LrWpanCsmaCaSwperNoba::LrWpanCsmaCaSwperNoba()
+LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba()
 {
     NS_ASSERT_MSG(false, "nodeCount, priority missing.");
 }
 
-LrWpanCsmaCaSwperNoba::~LrWpanCsmaCaSwperNoba()
+LrWpanCsmaCaSwprNoba::~LrWpanCsmaCaSwprNoba()
 {
     m_mac = nullptr;
 }
 
 void
-LrWpanCsmaCaSwperNoba::DoDispose()
+LrWpanCsmaCaSwprNoba::DoDispose()
 {
     m_lrWpanMacStateCallback = MakeNullCallback<void, MacState>();
     m_lrWpanMacTransCostCallback = MakeNullCallback<void, uint32_t>();
@@ -167,43 +167,43 @@ LrWpanCsmaCaSwperNoba::DoDispose()
 }
 
 void
-LrWpanCsmaCaSwperNoba::SetMac(Ptr<LrWpanMac> mac)
+LrWpanCsmaCaSwprNoba::SetMac(Ptr<LrWpanMac> mac)
 {
     m_mac = mac;
 }
 
 Ptr<LrWpanMac>
-LrWpanCsmaCaSwperNoba::GetMac()
+LrWpanCsmaCaSwprNoba::GetMac()
 {
     return m_mac;
 }
 
 void
-LrWpanCsmaCaSwperNoba::SetSlottedCsmaCa()
+LrWpanCsmaCaSwprNoba::SetSlottedCsmaCa()
 {
     m_isSlotted = true;
 }
 
 void
-LrWpanCsmaCaSwperNoba::SetUnSlottedCsmaCa()
+LrWpanCsmaCaSwprNoba::SetUnSlottedCsmaCa()
 {
     NS_ASSERT_MSG(false, "cannot set unslotted CSMA/CA NOBA.");
 }
 
 bool
-LrWpanCsmaCaSwperNoba::IsSlottedCsmaCa()
+LrWpanCsmaCaSwprNoba::IsSlottedCsmaCa()
 {
     return m_isSlotted;
 }
 
 bool
-LrWpanCsmaCaSwperNoba::IsUnSlottedCsmaCa()
+LrWpanCsmaCaSwprNoba::IsUnSlottedCsmaCa()
 {
     return !m_isSlotted;
 }
 
 Time
-LrWpanCsmaCaSwperNoba::GetTimeToNextSlot() const
+LrWpanCsmaCaSwprNoba::GetTimeToNextSlot() const
 {
     NS_LOG_FUNCTION(this);
 
@@ -257,7 +257,7 @@ LrWpanCsmaCaSwperNoba::GetTimeToNextSlot() const
 }
 
 void
-LrWpanCsmaCaSwperNoba::Start()
+LrWpanCsmaCaSwprNoba::Start()
 {
     NS_LOG_FUNCTION(this);
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
@@ -273,11 +273,11 @@ LrWpanCsmaCaSwperNoba::Start()
     // boundary)
     Time backoffBoundary = GetTimeToNextSlot();
     m_randomBackoffEvent =
-        Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaSwperNoba::RandomBackoffDelay, this);
+        Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaSwprNoba::RandomBackoffDelay, this);
 }
 
 void
-LrWpanCsmaCaSwperNoba::Cancel()
+LrWpanCsmaCaSwprNoba::Cancel()
 {
     m_randomBackoffEvent.Cancel();
     m_requestCcaEvent.Cancel();
@@ -288,7 +288,7 @@ LrWpanCsmaCaSwperNoba::Cancel()
 }
 
 void
-LrWpanCsmaCaSwperNoba::RandomBackoffDelay()
+LrWpanCsmaCaSwprNoba::RandomBackoffDelay()
 {
     NS_LOG_FUNCTION(this);
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA/CA is supported.");
@@ -331,16 +331,16 @@ LrWpanCsmaCaSwperNoba::RandomBackoffDelay()
             m_backoffCount -= usedBackoffs;
             NS_LOG_DEBUG("No time in CAP to complete backoff delay, deferring to the next CAP");
             m_endCapEvent =
-                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwperNoba::DeferCsmaTimeout, this);
+                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwprNoba::DeferCsmaTimeout, this);
         }
         else
         {
-            m_canProceedEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaSwperNoba::CanProceed, this);
+            m_canProceedEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaSwprNoba::CanProceed, this);
         }
 }
 
 Time
-LrWpanCsmaCaSwperNoba::GetTimeLeftInCap()
+LrWpanCsmaCaSwprNoba::GetTimeLeftInCap()
 {
     Time currentTime;
     uint64_t capSymbols;
@@ -370,7 +370,7 @@ LrWpanCsmaCaSwperNoba::GetTimeLeftInCap()
 }
 
 void
-LrWpanCsmaCaSwperNoba::CanProceed()
+LrWpanCsmaCaSwprNoba::CanProceed()
 {
     NS_LOG_FUNCTION(this);
 
@@ -436,16 +436,16 @@ LrWpanCsmaCaSwperNoba::CanProceed()
         NS_LOG_DEBUG("Symbols left in CAP: " << (timeLeftInCap.GetSeconds() * symbolRate) << " ("
                                              << timeLeftInCap.As(Time::S) << ")");
 
-        m_endCapEvent = Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwperNoba::DeferCsmaTimeout, this);
+        m_endCapEvent = Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwprNoba::DeferCsmaTimeout, this);
     }
     else
     {
-        m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwperNoba::RequestCCA, this);
+        m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwprNoba::RequestCCA, this);
     }
 }
 
 void
-LrWpanCsmaCaSwperNoba::RequestCCA()
+LrWpanCsmaCaSwprNoba::RequestCCA()
 {
     NS_LOG_FUNCTION(this);
     m_ccaRequestRunning = true;
@@ -453,14 +453,14 @@ LrWpanCsmaCaSwperNoba::RequestCCA()
 }
 
 void
-LrWpanCsmaCaSwperNoba::DeferCsmaTimeout()
+LrWpanCsmaCaSwprNoba::DeferCsmaTimeout()
 {
     NS_LOG_FUNCTION(this);
     m_lrWpanMacStateCallback(MAC_CSMA_DEFERRED);
 }
 
 void
-LrWpanCsmaCaSwperNoba::PlmeCcaConfirm(PhyEnumeration status)
+LrWpanCsmaCaSwprNoba::PlmeCcaConfirm(PhyEnumeration status)
 {
     NS_LOG_FUNCTION(this << status);
 
@@ -486,7 +486,7 @@ LrWpanCsmaCaSwperNoba::PlmeCcaConfirm(PhyEnumeration status)
             else
             {
                 NS_LOG_LOGIC("Perform CCA again, backoff count = " << m_backoffCount);
-                m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwperNoba::RequestCCA,
+                m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwprNoba::RequestCCA,
                                                             this); // Perform CCA again
             }
         }
@@ -497,33 +497,33 @@ LrWpanCsmaCaSwperNoba::PlmeCcaConfirm(PhyEnumeration status)
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
             m_randomBackoffEvent =
-                Simulator::ScheduleNow(&LrWpanCsmaCaSwperNoba::RandomBackoffDelay, this);
+                Simulator::ScheduleNow(&LrWpanCsmaCaSwprNoba::RandomBackoffDelay, this);
         }
     }
 }
 
 void
-LrWpanCsmaCaSwperNoba::SetLrWpanMacTransCostCallback(LrWpanMacTransCostCallback c)
+LrWpanCsmaCaSwprNoba::SetLrWpanMacTransCostCallback(LrWpanMacTransCostCallback c)
 {
     NS_LOG_FUNCTION(this);
     m_lrWpanMacTransCostCallback = c;
 }
 
 void
-LrWpanCsmaCaSwperNoba::SetLrWpanMacStateCallback(LrWpanMacStateCallback c)
+LrWpanCsmaCaSwprNoba::SetLrWpanMacStateCallback(LrWpanMacStateCallback c)
 {
     NS_LOG_FUNCTION(this);
     m_lrWpanMacStateCallback = c;
 }
 
 void
-LrWpanCsmaCaSwperNoba::SetBatteryLifeExtension(bool batteryLifeExtension)
+LrWpanCsmaCaSwprNoba::SetBatteryLifeExtension(bool batteryLifeExtension)
 {
     m_macBattLifeExt = batteryLifeExtension;
 }
 
 int64_t
-LrWpanCsmaCaSwperNoba::AssignStreams(int64_t stream)
+LrWpanCsmaCaSwprNoba::AssignStreams(int64_t stream)
 {
     NS_LOG_FUNCTION(this);
     m_random->SetStream(stream);
@@ -531,24 +531,27 @@ LrWpanCsmaCaSwperNoba::AssignStreams(int64_t stream)
 }
 
 uint8_t
-LrWpanCsmaCaSwperNoba::GetNB()
+LrWpanCsmaCaSwprNoba::GetNB()
 {
     return m_collisions;
 }
 
 bool
-LrWpanCsmaCaSwperNoba::GetBatteryLifeExtension()
+LrWpanCsmaCaSwprNoba::GetBatteryLifeExtension()
 {
     return m_macBattLifeExt;
 }
 
 void
-LrWpanCsmaCaSwperNoba::SetBackoffCounter()
+LrWpanCsmaCaSwprNoba::SetBackoffCounter()
 {
     COLLISION_COUNT[m_TP]++;
     m_collisions++;
     m_csmaCaCollisionTrace(m_TP, m_collisions);
-    
+
+    NS_ASSERT(m_collisions <= 2);
+
+
     if(COLLISION_COUNT[m_TP] == 0)
     {
         SW[m_TP] = 1;
@@ -595,9 +598,9 @@ LrWpanCsmaCaSwperNoba::SetBackoffCounter()
 }
 
 void
-LrWpanCsmaCaSwperNoba::AdjustSW()
+LrWpanCsmaCaSwprNoba::AdjustSW()
 {
-    m_collisions = 0;
+    // m_collisions = 0;
     // decrease collision count by 1.
     if (COLLISION_COUNT[m_TP] >= 1)
     {
@@ -641,7 +644,7 @@ LrWpanCsmaCaSwperNoba::AdjustSW()
 }
 
 void
-LrWpanCsmaCaSwperNoba::AdjustCW()
+LrWpanCsmaCaSwprNoba::AdjustCW()
 {
     CW[m_TP].second =
         std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
@@ -652,7 +655,7 @@ LrWpanCsmaCaSwperNoba::AdjustCW()
         CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
     NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        "CSMA/CA SWPR-NOBA: MODIFIED SW, CW, WL: \n"
         <<
         "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
         <<

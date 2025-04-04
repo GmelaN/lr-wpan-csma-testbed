@@ -19,10 +19,12 @@ build_lib(
     model/lr-wpan-csmaca.cc
     model/lr-wpan-csmaca-noba.cc
     model/lr-wpan-csmaca-sw-noba.cc
+    model/lr-wpan-csmaca-swpr-noba.cc
     model/lr-wpan-csmaca-standard.cc
     model/lr-wpan-csmaca-common.cc
     model/lr-wpan-delay-tag.cc
     model/lr-wpan-priority-tag.cc
+    model/lr-wpan-retransmission-tag.cc
 
   HEADER_FILES
     helper/lr-wpan-helper.h
@@ -44,10 +46,12 @@ build_lib(
     model/lr-wpan-csmaca.h
     model/lr-wpan-csmaca-noba.h
     model/lr-wpan-csmaca-sw-noba.h
+    model/lr-wpan-csmaca-swpr-noba.h
     model/lr-wpan-csmaca-standard.h
     model/lr-wpan-csmaca-common.h
     model/lr-wpan-delay-tag.h
     model/lr-wpan-priority-tag.h
+    model/lr-wpan-retransmission-tag.h
 
 
   LIBRARIES_TO_LINK ${libspectrum}

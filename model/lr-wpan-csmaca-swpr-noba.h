@@ -7,10 +7,10 @@
  *  Jo Seoung Hyeon <gmelan@gnu.ac.kr>
  */
 
-#ifndef LR_WPAN_CSMACA_SWPER_NOBA_H
-#define LR_WPAN_CSMACA_SWPER_NOBA_H
+#ifndef LR_WPAN_CSMACA_SWPR_NOBA_H
+#define LR_WPAN_CSMACA_SWPR_NOBA_H
 
-#define TP_COUNT 8      // emergency TP
+#define TP_COUNT 8
 
 #include "lr-wpan-mac.h"
 #include "lr-wpan-csmaca-common.h"
@@ -31,17 +31,13 @@ namespace lrwpan
  * This class is a helper for the LrWpanMac to manage the Csma/CA
  * state machine according to IEEE 802.15.4-2006, section 7.5.1.4.
  */
-class LrWpanCsmaCaSwperNoba : public LrWpanCsmaCaCommon
+class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
 {
   static uint32_t SW[TP_COUNT]; // each TP
   static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
   static uint32_t WL[TP_COUNT]; // each TP
 
 
-  static uint32_t MK_M[TP_COUNT];
-  static uint32_t MK_K[TP_COUNT];
-  static uint32_t MK_SUCCESS[TP_COUNT];
-  static std::deque<bool> MK_WINDOW[TP_COUNT];
 
 
   public:
@@ -64,13 +60,13 @@ class LrWpanCsmaCaSwperNoba : public LrWpanCsmaCaCommon
     /**
     * Default constructor.
     */
-    LrWpanCsmaCaSwperNoba();
-    ~LrWpanCsmaCaSwperNoba() override;
+    LrWpanCsmaCaSwprNoba();
+    ~LrWpanCsmaCaSwprNoba() override;
 
-    LrWpanCsmaCaSwperNoba(uint8_t priority);
+    LrWpanCsmaCaSwprNoba(uint8_t priority);
     // Delete copy constructor and assignment operator to avoid misuse
-    LrWpanCsmaCaSwperNoba(const LrWpanCsmaCaSwperNoba&) = delete;
-    LrWpanCsmaCaSwperNoba& operator=(const LrWpanCsmaCaSwperNoba&) = delete;
+    LrWpanCsmaCaSwprNoba(const LrWpanCsmaCaSwprNoba&) = delete;
+    LrWpanCsmaCaSwprNoba& operator=(const LrWpanCsmaCaSwprNoba&) = delete;
     /**
       * Set the MAC to which this CSMA/CA implementation is attached to.
       *
@@ -280,14 +276,9 @@ private:
   * The trace source fired when collision occurs.
   */
   // TracedCallback<uint8_t, uint32_t> m_csmaCaCollisionTrace;
-
-  /**
-   * Original TP,
-   */
-  uint8_t m_originalTP;
 };
 
 } // namespace lrwpan
 } // namespace ns3
 
-#endif /* LR_WPAN_CSMACA_SWPER_NOBA_H */
+#endif /* LR_WPAN_CSMACA_SW_NOBA_H */
