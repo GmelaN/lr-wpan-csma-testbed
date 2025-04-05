@@ -46,7 +46,7 @@ LrWpanCsmaCaSwprNoba::GetTypeId()
                             .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
                             .AddConstructor<LrWpanCsmaCaSwprNoba>()
-                            .AddTraceSource("csmaCaSwNobaCollisionTrace",
+                            .AddTraceSource("csmaCaSwprNobaCollisionTrace",
                                             "CSMA/CA SWPR-NOBA collision count trace",
                                             MakeTraceSourceAccessor(&LrWpanCsmaCaSwprNoba::m_csmaCaCollisionTrace),
                                             "ns3::TracedCallback");
@@ -630,7 +630,7 @@ LrWpanCsmaCaSwprNoba::AdjustSW()
             - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
 
     NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        "CSMA/CA SWPR-NOBA: MODIFIED SW, CW, WL: \n"
         <<
         "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
         <<
