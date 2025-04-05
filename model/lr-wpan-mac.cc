@@ -2494,13 +2494,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                         if (m_csmaOption == CSMA_SW_NOBA)
                         {
                             Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
-                            LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()]++;
-                            if (LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] == 3)
-                            {
-                                LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
-                                csma->AdjustSW();
-
-                            }
+                            csma->AdjustSW();
                         }
                         if (m_csmaOption == CSMA_SWPR_NOBA)
                         {

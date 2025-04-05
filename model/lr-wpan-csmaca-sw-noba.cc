@@ -264,7 +264,7 @@ LrWpanCsmaCaSwNoba::Start()
 
     m_collisions = 0; // collision counter C
     m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
-    NS_LOG_DEBUG("Using CSMA-CA NOBA, bakcoff count is: " << m_backoffCount);
+    NS_LOG_DEBUG("Using CSMA-CA SW-NOBA, bakcoff count is: " << m_backoffCount);
 
     // m_coorDest to decide between incoming and outgoing superframes times
     m_coorDest = m_mac->IsCoordDest();
@@ -597,7 +597,14 @@ LrWpanCsmaCaSwNoba::SetBackoffCounter()
 void
 LrWpanCsmaCaSwNoba::AdjustSW()
 {
-    m_collisions = 0;
+    SUCCESS_COUNT[m_TP]++;
+    if(SUCCESS_COUNT[m_TP] < 3)
+    {
+        return;
+    }
+    // over three success
+    SUCCESS_COUNT[m_TP] = 0;
+    // m_collisions = 0;
     // decrease collision count by 1.
     if (COLLISION_COUNT[m_TP] >= 1)
     {
@@ -620,7 +627,7 @@ LrWpanCsmaCaSwNoba::AdjustSW()
             - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
 
     NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        "CSMA/CA SW-NOBA: MODIFIED SW, CW, WL: \n"
         <<
         "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
         <<
@@ -652,7 +659,7 @@ LrWpanCsmaCaSwNoba::AdjustCW()
         CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
     NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        "CSMA/CA SW-NOBA: MODIFIED SW, CW, WL: \n"
         <<
         "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
         <<
