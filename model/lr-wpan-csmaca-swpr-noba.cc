@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <random>
 
 /*
 #undef NS_LOG_APPEND_CONTEXT
@@ -37,6 +38,13 @@ uint32_t LrWpanCsmaCaSwprNoba::WL[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaSwprNoba::COLLISION_COUNT[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaSwprNoba::SUCCESS_COUNT[TP_COUNT]; // each TP
 
+std::map<LatencyStatus, std::pair<double, double>>
+LrWpanCsmaCaSwprNoba::STRATEGY = {
+    {NORMAL, {1.7, 1.1}},
+    {IMMEDIATE, {1.0, 1.0}},
+    {URGENT, {0.8, 1.2}},
+ };
+
 
 TypeId
 LrWpanCsmaCaSwprNoba::GetTypeId()
@@ -56,17 +64,12 @@ LrWpanCsmaCaSwprNoba::GetTypeId()
 void
 LrWpanCsmaCaSwprNoba::InitializeGlobals(bool init)
 {
-    // for(int i = 0; i < TP_COUNT; i++)
-    // {
-    //     std::cout << SW[i] << '\t';
-    // }
     if (init)
     {
         for(int i = 0; i < TP_COUNT; i++)
         {
             SW[i] = 1;
         }
-        // std::cout << '\n';
     }
 
     WL[7] = 16;
@@ -273,8 +276,13 @@ LrWpanCsmaCaSwprNoba::Start()
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
 
     m_collisions = 0; // collision counter C
-    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
-    NS_LOG_DEBUG("Using CSMA-CA NOBA, bakcoff count is: " << m_backoffCount);
+
+    // TODO: CHANGE THIS CODE (via beta distribution)
+    LatencyStatus strategy = GetStrategy();
+    std::pair<double, double> params = STRATEGY[strategy];
+    m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
+    // m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
+    NS_LOG_DEBUG("Using CSMA CA SWPR-NOBA, bakcoff count is: " << m_backoffCount);
 
     // m_coorDest to decide between incoming and outgoing superframes times
     m_coorDest = m_mac->IsCoordDest();
@@ -313,7 +321,11 @@ LrWpanCsmaCaSwprNoba::RandomBackoffDelay()
     // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not receiveed
     if (m_backoffCount == 0 || m_freezeBackoff)
     {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
+        // TODO: CHANGE THIS CODE (via beta distribution)
+        LatencyStatus strategy = GetStrategy();
+        std::pair<double, double> params = STRATEGY[strategy];
+        m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
+        // m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
     randomBackoff =
@@ -324,7 +336,7 @@ LrWpanCsmaCaSwprNoba::RandomBackoffDelay()
         // IFS)
         timeLeftInCap = GetTimeLeftInCap();
 
-        NS_LOG_DEBUG("CSMA/CA SW-NOBA: proceeding after random backoff of "
+        NS_LOG_DEBUG("CSMA/CA SWPR-NOBA: proceeding after random backoff of "
                      << m_backoffCount << " periods ("
                      << (randomBackoff.GetSeconds() * symbolRate) << " symbols or "
                      << randomBackoff.As(Time::S) << ")");
@@ -502,7 +514,7 @@ LrWpanCsmaCaSwprNoba::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
-            // m_csmaCaCollisionTrace(m_TP, m_collisions);
+            m_csmaCaCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
@@ -568,9 +580,6 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
     m_collisions++;
     m_csmaCaCollisionTrace(m_TP, m_collisions);
 
-    NS_ASSERT(m_collisions <= 2);
-
-
     if(COLLISION_COUNT[m_TP] == 0)
     {
         SW[m_TP] = 1;
@@ -585,18 +594,26 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
     // with over 4 collisions we don't adjust SW anymore.
     this->AdjustCW();
 
+
+    // TODO: beta distribution
     if(CW[m_TP].second > WL[m_TP])
     {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
+        LatencyStatus strategy = GetStrategy();
+        std::pair<double, double> params = STRATEGY[strategy];
+        m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, WL[m_TP]);
+        // m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
     }
     else
     {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
+        LatencyStatus strategy = GetStrategy();
+        std::pair<double, double> params = STRATEGY[strategy];
+        m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
+        // m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
     NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
     NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        "CSMA/CA SWPR-NOBA: MODIFIED SW, CW, WL: \n"
         <<
         "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
         <<
@@ -615,7 +632,6 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
         "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
     );
 }
-
 void
 LrWpanCsmaCaSwprNoba::AdjustSW()
 {
@@ -643,7 +659,6 @@ LrWpanCsmaCaSwprNoba::AdjustSW()
     {
         return;
     }
-    //
     SW[m_TP] =
         pow(2, COLLISION_COUNT[m_TP])
             - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
@@ -709,6 +724,50 @@ LrWpanCsmaCaSwprNoba::AdjustCW()
         <<
         "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
     );
+}
+
+uint32_t
+LrWpanCsmaCaSwprNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
+{
+    Ptr<GammaRandomVariable> gammaAlpha = CreateObject<GammaRandomVariable>();
+    Ptr<GammaRandomVariable> gammaBeta = CreateObject<GammaRandomVariable>();
+
+    gammaAlpha->SetAttribute("Alpha", DoubleValue(alpha));
+    gammaAlpha->SetAttribute("Beta", DoubleValue(1.0));
+
+    gammaBeta->SetAttribute("Alpha", DoubleValue(beta));
+    gammaBeta->SetAttribute("Beta", DoubleValue(1.0));
+
+    double a = gammaAlpha->GetValue();
+    double b = gammaBeta->GetValue();
+
+    double z = a / (a + b); // in [0,1]
+
+    return static_cast<uint32_t>(x + (y - x) * z); // map to [x,y]
+}
+
+LatencyStatus
+LrWpanCsmaCaSwprNoba::GetStrategy()
+{
+    LatencyStatus status;
+    uint32_t successes = GetSussessCounts();
+    // if failed count > M
+    // WE MUST SEND IT.
+    if (m_K - successes >= m_M)
+    {
+        status = URGENT;
+    }
+    // I can tolerate yet.
+    else if (m_K - successes - 1 < m_M)
+    {
+        status = NORMAL;
+    }
+    // we should prepare more.
+    else
+    {
+        status = IMMEDIATE;
+    }
+    return status;
 }
 
 } // namespace lrwpan

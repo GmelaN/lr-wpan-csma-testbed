@@ -18,6 +18,8 @@
 #include <ns3/event-id.h>
 #include <ns3/object.h>
 
+#include <map>
+
 namespace ns3
 {
 
@@ -31,14 +33,23 @@ namespace lrwpan
  * This class is a helper for the LrWpanMac to manage the Csma/CA
  * state machine according to IEEE 802.15.4-2006, section 7.5.1.4.
  */
+
+enum LatencyStatus
+{
+  NORMAL = 0,
+  IMMEDIATE = 1,
+  URGENT = 2
+};
+
+
 class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
 {
   static uint32_t SW[TP_COUNT]; // each TP
   static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
   static uint32_t WL[TP_COUNT]; // each TP
 
-
-
+  // random distribution strategy.
+  static std::map<LatencyStatus, std::pair<double, double>> STRATEGY;
 
   public:
     static uint32_t COLLISION_COUNT[TP_COUNT]; // each TP
