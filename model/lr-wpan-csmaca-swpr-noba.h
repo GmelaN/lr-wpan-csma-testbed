@@ -248,6 +248,15 @@ class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
    */
   void SetBackoffCounter();
 
+  uint32_t GetK() const { return m_K; }
+  void SetK(uint32_t k) { m_K = k; }
+  uint32_t GetM() const { return m_M; }
+  void SetM(uint32_t m) { m_M = m; }
+
+  /**
+   * when TX succeed, we include this result to model.
+   */
+  void TxSucceed();
 
 private:
   /**

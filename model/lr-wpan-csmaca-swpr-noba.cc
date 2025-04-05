@@ -600,6 +600,13 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
 void
 LrWpanCsmaCaSwprNoba::AdjustSW()
 {
+    SUCCESS_COUNT[m_TP]++;
+    if(SUCCESS_COUNT[m_TP] < 3)
+    {
+        return;
+    }
+    // over three success
+    SUCCESS_COUNT[m_TP] = 0;
     // m_collisions = 0;
     // decrease collision count by 1.
     if (COLLISION_COUNT[m_TP] >= 1)
@@ -641,6 +648,16 @@ LrWpanCsmaCaSwprNoba::AdjustSW()
         <<
         "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
     );
+}
+
+void
+LrWpanCsmaCaSwprNoba::TxSucceed()
+{
+    NS_LOG_DEBUG("CSMA/CA SWPR-NOBA: TX succeed, including this result to model.");
+    NS_ASSERT(m_resultQueue.size() == m_K);
+    m_resultQueue.pop_front();
+    m_resultQueue.push_back(true);
+    NS_ASSERT(m_resultQueue.size() == m_K);
 }
 
 void
