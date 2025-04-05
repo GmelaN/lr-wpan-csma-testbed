@@ -144,6 +144,16 @@ LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba(uint8_t priority)
     m_collisions = 0;
     m_backoffCount = 0;
     m_freezeBackoff = false;
+
+    // M, K model initialization
+    // TODO: dynamic M, K allocation?
+    m_M = 3;
+    m_K = 5;
+    NS_LOG_DEBUG("LR-WPAN SWPR-NOBA: M, K = " << m_M << ",\t" << m_K);
+    for (uint32_t i = 0; i < m_K; i++)
+    {
+        m_resultQueue.push_back(true);
+    }
 }
 
 LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba()
@@ -545,6 +555,15 @@ LrWpanCsmaCaSwprNoba::GetBatteryLifeExtension()
 void
 LrWpanCsmaCaSwprNoba::SetBackoffCounter()
 {
+    // transmission failed(NO ACK), include this to M, K model.
+    NS_LOG_DEBUG("CSMA/CA SWPR-NOBA: TX failed, appending this into model.");
+    NS_ASSERT(m_resultQueue.size() == m_K);
+
+    m_resultQueue.pop_front();
+    m_resultQueue.push_back(false);
+
+    NS_ASSERT(m_resultQueue.size() == m_K);
+
     COLLISION_COUNT[m_TP]++;
     m_collisions++;
     m_csmaCaCollisionTrace(m_TP, m_collisions);

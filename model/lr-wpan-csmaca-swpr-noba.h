@@ -247,6 +247,22 @@ class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
    * when ACK timeout occured, modify CW, SW and get backoff counter value
    */
   void SetBackoffCounter();
+  /**
+   * get previous K successful transmission count
+   */
+  uint32_t GetSussessCounts()
+  {
+    NS_ASSERT(m_resultQueue.size() == m_K);
+    uint32_t sussessCount = 0;
+    for (auto i = m_resultQueue.begin(); i != m_resultQueue.end(); ++i)
+    {
+      if (*i)
+      {
+        sussessCount++;
+      }
+    }
+    return sussessCount;
+  }
 
   uint32_t GetK() const { return m_K; }
   void SetK(uint32_t k) { m_K = k; }
@@ -284,7 +300,27 @@ private:
   /**
   * The trace source fired when collision occurs.
   */
-  // TracedCallback<uint8_t, uint32_t> m_csmaCaCollisionTrace;
+  TracedCallback<uint8_t, uint32_t> m_csmaCaCollisionTrace;
+  /**
+   * transmission result queue.
+   */
+  std::deque<bool> m_resultQueue;
+  /**
+   * total size of K, tolerance count of M (from (m, k)-firm)
+   */
+  uint32_t m_M, m_K;
+  /**
+   * alpha, beta from beta distribution.
+   */
+  double m_alpha, m_beta;
+  /**
+   * beta distribution
+   */
+  uint32_t BetaMappedRandom(double alpha, double beta, uint32_t x, uint32_t y);
+  /**
+   * get strategy from model.
+   */
+  LatencyStatus GetStrategy();
 };
 
 } // namespace lrwpan
