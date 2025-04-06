@@ -120,7 +120,6 @@ LrWpanCsmaCaSwNoba::InitializeGlobals(bool init)
     return;
 }
 
-
 LrWpanCsmaCaSwNoba::LrWpanCsmaCaSwNoba(uint8_t priority)
 {
     NS_ASSERT(priority >= 0 && priority <= 7);
@@ -165,6 +164,218 @@ LrWpanCsmaCaSwNoba::DoDispose()
     Cancel();
     m_mac = nullptr;
 }
+
+void
+LrWpanCsmaCaSwNoba::Start()
+{
+    NS_LOG_FUNCTION(this);
+    NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
+
+    m_collisions = 0; // collision counter C
+    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
+    NS_LOG_DEBUG("Using CSMA-CA SW-NOBA, bakcoff count is: " << m_backoffCount);
+
+    // m_coorDest to decide between incoming and outgoing superframes times
+    m_coorDest = m_mac->IsCoordDest();
+
+    // Locate backoff period boundary. (i.e. a time delay to align with the next backoff period
+    // boundary)
+    Time backoffBoundary = GetTimeToNextSlot();
+    m_randomBackoffEvent =
+        Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaSwNoba::RandomBackoffDelay, this);
+}
+
+void
+LrWpanCsmaCaSwNoba::SetBackoffCounter()
+{
+    COLLISION_COUNT[m_TP]++;
+    m_collisions++;
+    m_csmaCaCollisionTrace(m_TP, m_collisions);
+
+    if(COLLISION_COUNT[m_TP] == 0)
+    {
+        SW[m_TP] = 1;
+    }
+    else if (COLLISION_COUNT[m_TP] <= 4)
+    {
+        SW[m_TP] =
+            pow(2, COLLISION_COUNT[m_TP] + 1)
+            - std::min(round(std::tgamma(COLLISION_COUNT[m_TP] + 1)), pow(2, COLLISION_COUNT[m_TP]))
+        ;
+    }
+    // with over 4 collisions we don't adjust SW anymore.
+    this->AdjustCW();
+
+    if(CW[m_TP].second > WL[m_TP])
+    {
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
+    }
+    else
+    {
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
+    }
+
+    NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
+    NS_LOG_DEBUG(
+        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
+        <<
+        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+        <<
+        '\n'
+        <<
+        "CW: "
+        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+        <<
+        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    );
+}
+
+void
+LrWpanCsmaCaSwNoba::AdjustSW()
+{
+    SUCCESS_COUNT[m_TP]++;
+    if(SUCCESS_COUNT[m_TP] < 3)
+    {
+        return;
+    }
+    // over three success
+    SUCCESS_COUNT[m_TP] = 0;
+    // m_collisions = 0;
+    // decrease collision count by 1.
+    if (COLLISION_COUNT[m_TP] >= 1)
+    {
+        COLLISION_COUNT[m_TP]--;
+    }
+    // adjust SW if three success TX occured
+    if(COLLISION_COUNT[m_TP] == 0)
+    {
+        SW[m_TP] = 1;
+        return;
+    }
+    // with collisions over 4 we don't adjust SW anymore.
+    if (COLLISION_COUNT[m_TP] > 4)
+    {
+        return;
+    }
+    //
+    SW[m_TP] =
+        pow(2, COLLISION_COUNT[m_TP])
+            - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
+
+    NS_LOG_DEBUG(
+        "CSMA/CA SW-NOBA: MODIFIED SW, CW, WL: \n"
+        <<
+        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+        <<
+        '\n'
+        <<
+        "CW: "
+        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+        <<
+        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    );
+}
+
+void
+LrWpanCsmaCaSwNoba::AdjustCW()
+{
+    CW[m_TP].second =
+        std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
+
+    for (int i = m_TP - 1; i >= 0; i--)  // Adjust lower TPs
+    {
+        CW[i].first = CW[i + 1].second + 1;
+        CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
+    }
+    NS_LOG_DEBUG(
+        "CSMA/CA SW-NOBA: MODIFIED SW, CW, WL: \n"
+        <<
+        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
+        <<
+        '\n'
+        <<
+        "CW: "
+        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+        <<
+        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
+    );
+}
+
+void
+LrWpanCsmaCaSwNoba::RandomBackoffDelay()
+{
+    NS_LOG_FUNCTION(this);
+    NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA/CA is supported.");
+
+    Time randomBackoff;
+    uint64_t symbolRate;
+    Time timeLeftInCap;
+
+    symbolRate = (uint64_t)m_mac->GetPhy()->GetDataOrSymbolRate(false); // symbols per second
+
+    // We should not recalculate the random backoffPeriods if we are in a slotted CSMA-CA and the
+    // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not receiveed
+    if (m_backoffCount == 0 || m_freezeBackoff)
+    {
+        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
+    }
+
+    randomBackoff =
+        Seconds((double)(m_backoffCount * lrwpan::aUnitBackoffPeriod) / symbolRate);
+
+        // We must make sure there is enough time left in the CAP, otherwise we continue in
+        // the CAP of the next superframe after the transmission/reception of the beacon (and the
+        // IFS)
+        timeLeftInCap = GetTimeLeftInCap();
+
+        NS_LOG_DEBUG("CSMA/CA SW-NOBA: proceeding after random backoff of "
+                     << m_backoffCount << " periods ("
+                     << (randomBackoff.GetSeconds() * symbolRate) << " symbols or "
+                     << randomBackoff.As(Time::S) << ")");
+
+        NS_LOG_DEBUG("Backoff periods left in CAP: "
+                     << ((timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod)
+                     << " (" << (timeLeftInCap.GetSeconds() * symbolRate) << " symbols or "
+                     << timeLeftInCap.As(Time::S) << ")");
+
+        if (randomBackoff >= timeLeftInCap)
+        {
+            uint32_t usedBackoffs =
+                (double)(timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod;
+            m_backoffCount -= usedBackoffs;
+            NS_LOG_DEBUG("No time in CAP to complete backoff delay, deferring to the next CAP");
+            m_endCapEvent =
+                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwNoba::DeferCsmaTimeout, this);
+        }
+        else
+        {
+            m_canProceedEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaSwNoba::CanProceed, this);
+        }
+}
+
+
+
 
 void
 LrWpanCsmaCaSwNoba::SetMac(Ptr<LrWpanMac> mac)
@@ -256,25 +467,6 @@ LrWpanCsmaCaSwNoba::GetTimeToNextSlot() const
     return nextBoundary;
 }
 
-void
-LrWpanCsmaCaSwNoba::Start()
-{
-    NS_LOG_FUNCTION(this);
-    NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
-
-    m_collisions = 0; // collision counter C
-    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
-    NS_LOG_DEBUG("Using CSMA-CA SW-NOBA, bakcoff count is: " << m_backoffCount);
-
-    // m_coorDest to decide between incoming and outgoing superframes times
-    m_coorDest = m_mac->IsCoordDest();
-
-    // Locate backoff period boundary. (i.e. a time delay to align with the next backoff period
-    // boundary)
-    Time backoffBoundary = GetTimeToNextSlot();
-    m_randomBackoffEvent =
-        Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaSwNoba::RandomBackoffDelay, this);
-}
 
 void
 LrWpanCsmaCaSwNoba::Cancel()
@@ -285,58 +477,6 @@ LrWpanCsmaCaSwNoba::Cancel()
     if(m_mac) {
         m_mac->GetPhy()->CcaCancel();
     }
-}
-
-void
-LrWpanCsmaCaSwNoba::RandomBackoffDelay()
-{
-    NS_LOG_FUNCTION(this);
-    NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA/CA is supported.");
-
-    Time randomBackoff;
-    uint64_t symbolRate;
-    Time timeLeftInCap;
-
-    symbolRate = (uint64_t)m_mac->GetPhy()->GetDataOrSymbolRate(false); // symbols per second
-
-    // We should not recalculate the random backoffPeriods if we are in a slotted CSMA-CA and the
-    // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not receiveed
-    if (m_backoffCount == 0 || m_freezeBackoff)
-    {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
-    }
-
-    randomBackoff =
-        Seconds((double)(m_backoffCount * lrwpan::aUnitBackoffPeriod) / symbolRate);
-
-        // We must make sure there is enough time left in the CAP, otherwise we continue in
-        // the CAP of the next superframe after the transmission/reception of the beacon (and the
-        // IFS)
-        timeLeftInCap = GetTimeLeftInCap();
-
-        NS_LOG_DEBUG("CSMA/CA SW-NOBA: proceeding after random backoff of "
-                     << m_backoffCount << " periods ("
-                     << (randomBackoff.GetSeconds() * symbolRate) << " symbols or "
-                     << randomBackoff.As(Time::S) << ")");
-
-        NS_LOG_DEBUG("Backoff periods left in CAP: "
-                     << ((timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod)
-                     << " (" << (timeLeftInCap.GetSeconds() * symbolRate) << " symbols or "
-                     << timeLeftInCap.As(Time::S) << ")");
-
-        if (randomBackoff >= timeLeftInCap)
-        {
-            uint32_t usedBackoffs =
-                (double)(timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod;
-            m_backoffCount -= usedBackoffs;
-            NS_LOG_DEBUG("No time in CAP to complete backoff delay, deferring to the next CAP");
-            m_endCapEvent =
-                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwNoba::DeferCsmaTimeout, this);
-        }
-        else
-        {
-            m_canProceedEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaSwNoba::CanProceed, this);
-        }
 }
 
 Time
@@ -540,143 +680,6 @@ bool
 LrWpanCsmaCaSwNoba::GetBatteryLifeExtension()
 {
     return m_macBattLifeExt;
-}
-
-void
-LrWpanCsmaCaSwNoba::SetBackoffCounter()
-{
-    COLLISION_COUNT[m_TP]++;
-    m_collisions++;
-    m_csmaCaCollisionTrace(m_TP, m_collisions);
-    
-    if(COLLISION_COUNT[m_TP] == 0)
-    {
-        SW[m_TP] = 1;
-    }
-    else if (COLLISION_COUNT[m_TP] <= 4)
-    {
-        SW[m_TP] =
-            pow(2, COLLISION_COUNT[m_TP] + 1)
-            - std::min(round(std::tgamma(COLLISION_COUNT[m_TP] + 1)), pow(2, COLLISION_COUNT[m_TP]))
-        ;
-    }
-    // with over 4 collisions we don't adjust SW anymore.
-    this->AdjustCW();
-
-    if(CW[m_TP].second > WL[m_TP])
-    {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
-    }
-    else
-    {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
-    }
-
-    NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
-    NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: MODIFIED SW, CW, WL: \n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
-}
-
-void
-LrWpanCsmaCaSwNoba::AdjustSW()
-{
-    SUCCESS_COUNT[m_TP]++;
-    if(SUCCESS_COUNT[m_TP] < 3)
-    {
-        return;
-    }
-    // over three success
-    SUCCESS_COUNT[m_TP] = 0;
-    // m_collisions = 0;
-    // decrease collision count by 1.
-    if (COLLISION_COUNT[m_TP] >= 1)
-    {
-        COLLISION_COUNT[m_TP]--;
-    }
-    // adjust SW if three success TX occured
-    if(COLLISION_COUNT[m_TP] == 0)
-    {
-        SW[m_TP] = 1;
-        return;
-    }
-    // with collisions over 4 we don't adjust SW anymore.
-    if (COLLISION_COUNT[m_TP] > 4)
-    {
-        return;
-    }
-    //
-    SW[m_TP] =
-        pow(2, COLLISION_COUNT[m_TP])
-            - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
-
-    NS_LOG_DEBUG(
-        "CSMA/CA SW-NOBA: MODIFIED SW, CW, WL: \n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
-}
-
-void
-LrWpanCsmaCaSwNoba::AdjustCW()
-{
-    CW[m_TP].second =
-        std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
-
-    for (int i = m_TP - 1; i >= 0; i--)  // Adjust lower TPs
-    {
-        CW[i].first = CW[i + 1].second + 1;
-        CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
-    }
-    NS_LOG_DEBUG(
-        "CSMA/CA SW-NOBA: MODIFIED SW, CW, WL: \n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
 }
 
 } // namespace lrwpan
