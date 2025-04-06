@@ -1037,16 +1037,16 @@ LrWpanMac::SendOneBeacon()
         NS_LOG_DEBUG("(CSMA/CA NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
         LrWpanCsmaCaNoba::InitializeGlobals(true);
     }
-    else if(m_csmaOption == CSMA_SW_NOBA)
-    {
-        NS_LOG_DEBUG("(CSMA/CA SW-NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
-        LrWpanCsmaCaSwNoba::InitializeGlobals(true);
-    }
-    else if(m_csmaOption == CSMA_SWPR_NOBA)
-    {
-        NS_LOG_DEBUG("(CSMA/CA SWPR-NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
-        LrWpanCsmaCaSwNoba::InitializeGlobals(true);
-    }
+    // else if(m_csmaOption == CSMA_SW_NOBA)
+    // {
+    //     NS_LOG_DEBUG("(CSMA/CA SW-NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
+    //     LrWpanCsmaCaSwNoba::InitializeGlobals(true);
+    // }
+    // else if(m_csmaOption == CSMA_SWPR_NOBA)
+    // {
+    //     NS_LOG_DEBUG("(CSMA/CA SWPR-NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
+    //     LrWpanCsmaCaSwNoba::InitializeGlobals(true);
+    // }
 
     NS_LOG_FUNCTION(this);
     NS_ASSERT(m_macState == MAC_IDLE);
@@ -2657,16 +2657,16 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
             }
             else
             {
-                if (m_csmaOption == CSMA_SW_NOBA)
-                {
-                    Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
-                    LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
-                }
-                if (m_csmaOption == CSMA_SWPR_NOBA)
-                {
-                    Ptr<LrWpanCsmaCaSwprNoba> csma = DynamicCast<LrWpanCsmaCaSwprNoba>(m_csmaCa);
-                    LrWpanCsmaCaSwprNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
-                }
+                // if (m_csmaOption == CSMA_SW_NOBA)
+                // {
+                //     Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
+                //     LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
+                // }
+                // if (m_csmaOption == CSMA_SWPR_NOBA)
+                // {
+                //     Ptr<LrWpanCsmaCaSwprNoba> csma = DynamicCast<LrWpanCsmaCaSwprNoba>(m_csmaCa);
+                //     LrWpanCsmaCaSwprNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
+                // }
                 m_macRxDropTrace(originalPkt, m_priority);
             }
         }

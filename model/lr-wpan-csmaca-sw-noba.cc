@@ -99,7 +99,7 @@ LrWpanCsmaCaSwNoba::InitializeGlobals(bool init)
     }
 
     NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: Initializing SW, CW, WL...\n"
+        "CSMA/CA SW-NOBA: Initializing SW, CW, WL...\n"
         <<
         "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
         <<
@@ -172,7 +172,7 @@ LrWpanCsmaCaSwNoba::Start()
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
 
     m_collisions = 0; // collision counter C
-    m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
+    m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second); // backoff counter B
     NS_LOG_DEBUG("Using CSMA-CA SW-NOBA, bakcoff count is: " << m_backoffCount);
 
     // m_coorDest to decide between incoming and outgoing superframes times
@@ -188,6 +188,7 @@ LrWpanCsmaCaSwNoba::Start()
 void
 LrWpanCsmaCaSwNoba::SetBackoffCounter()
 {
+    SUCCESS_COUNT[m_TP] = 0;
     COLLISION_COUNT[m_TP]++;
     m_collisions++;
     m_csmaCaSwNobaCollisionTrace(m_TP, m_collisions);
@@ -211,14 +212,14 @@ LrWpanCsmaCaSwNoba::SetBackoffCounter()
     // with over 4 collisions we don't adjust SW anymore.
     this->AdjustCW();
 
-    if(CW[m_TP].second > WL[m_TP])
-    {
-        m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
-    }
-    else
-    {
+    // if(CW[m_TP].second > WL[m_TP])
+    // {
+    //     m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
+    // }
+    // else
+    // {
         m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
-    }
+    // }
 
     NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
     NS_LOG_DEBUG(
@@ -245,20 +246,24 @@ LrWpanCsmaCaSwNoba::SetBackoffCounter()
 void
 LrWpanCsmaCaSwNoba::AdjustSW()
 {
+    // after successful transmission
     SUCCESS_COUNT[m_TP]++;
     if(SUCCESS_COUNT[m_TP] < 3)
     {
         return;
     }
+
+    NS_LOG_LOGIC("TX SUCCEED OVER THREE TIMES: ADJUST SW(from): " << SW[m_TP]);
     // over three success
-    SUCCESS_COUNT[m_TP] = 0;
-    // m_collisions = 0;
+    SUCCESS_COUNT[m_TP] = 1;
+
     // decrease collision count by 1.
     if (COLLISION_COUNT[m_TP] >= 1)
     {
         COLLISION_COUNT[m_TP]--;
     }
-    // adjust SW if three success TX occured
+
+    // adjust SW.
     if(COLLISION_COUNT[m_TP] == 0)
     {
         SW[m_TP] = 1;
@@ -269,10 +274,14 @@ LrWpanCsmaCaSwNoba::AdjustSW()
     {
         return;
     }
-    //
+
     SW[m_TP] =
         pow(2, COLLISION_COUNT[m_TP])
             - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
+
+    NS_LOG_LOGIC("TX SUCCEED OVER THREE TIMES: ADJUST SW(to): " << SW[m_TP]);
+
+    AdjustCW();
 
     NS_LOG_DEBUG(
         "CSMA/CA SW-NOBA: MODIFIED SW, CW, WL: \n"
@@ -298,6 +307,7 @@ LrWpanCsmaCaSwNoba::AdjustSW()
 void
 LrWpanCsmaCaSwNoba::AdjustCW()
 {
+    NS_LOG_LOGIC("\tADJUST TP " << static_cast<uint32_t>(m_TP) << "'s CW(from): " << CW[m_TP].first << " ~ " << CW[m_TP].second);
     CW[m_TP].second =
         std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
 
@@ -325,6 +335,8 @@ LrWpanCsmaCaSwNoba::AdjustCW()
         <<
         "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
     );
+
+    NS_LOG_LOGIC("\tADJUSTED TP " << static_cast<uint32_t>(m_TP) << "'s CW(to): " << CW[m_TP].first << " ~ " << CW[m_TP].second);
 }
 
 void
@@ -624,13 +636,13 @@ LrWpanCsmaCaSwNoba::PlmeCcaConfirm(PhyEnumeration status)
                 // inform MAC channel is idle
                 if (!m_lrWpanMacStateCallback.IsNull())
                 {
-                    NS_LOG_LOGIC("Notifying MAC of idle channel");
+                    // NS_LOG_LOGIC("Notifying MAC of idle channel");
                     m_lrWpanMacStateCallback(CHANNEL_IDLE);
                 }
             }
             else
             {
-                NS_LOG_LOGIC("Perform CCA again, backoff count = " << m_backoffCount);
+                // NS_LOG_LOGIC("Perform CCA again, backoff count = " << m_backoffCount);
                 m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwNoba::RequestCCA,
                                                             this); // Perform CCA again
             }
