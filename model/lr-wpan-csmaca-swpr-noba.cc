@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
+#include <bitset>
 
 /*
 #undef NS_LOG_APPEND_CONTEXT
@@ -72,14 +73,17 @@ LrWpanCsmaCaSwprNoba::InitializeGlobals(bool init)
         }
     }
 
-    WL[7] = 16;
-    WL[6] = 28;
-    WL[5] = 38;
-    WL[4] = 46;
-    WL[3] = 52;
-    WL[2] = 56;
-    WL[1] = 60;
-    WL[0] = 64;
+    // WL[7] = 16;
+    // WL[6] = 28;
+    // WL[5] = 38;
+    // WL[4] = 46;
+    // WL[3] = 52;
+    // WL[2] = 56;
+    // WL[1] = 60;
+    // WL[0] = 64;
+
+    WL[7] = 8; WL[6] = 16; WL[5] = 24; WL[4] = 32;
+    WL[3] = 40; WL[2] = 48; WL[1] = 56; WL[0] = 64;
 
     CW[7].first = 1;
     for(int i = TP_COUNT - 1; i >= 0; i--)
@@ -323,6 +327,7 @@ LrWpanCsmaCaSwprNoba::RandomBackoffDelay()
     {
         // TODO: CHANGE THIS CODE (via beta distribution)
         LatencyStatus strategy = GetStrategy();
+
         std::pair<double, double> params = STRATEGY[strategy];
         m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
         // m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
@@ -501,13 +506,13 @@ LrWpanCsmaCaSwprNoba::PlmeCcaConfirm(PhyEnumeration status)
                 // inform MAC channel is idle
                 if (!m_lrWpanMacStateCallback.IsNull())
                 {
-                    NS_LOG_LOGIC("Notifying MAC of idle channel");
+                    NS_LOG_DEBUG("Notifying MAC of idle channel");
                     m_lrWpanMacStateCallback(CHANNEL_IDLE);
                 }
             }
             else
             {
-                NS_LOG_LOGIC("Perform CCA again, backoff count = " << m_backoffCount);
+                NS_LOG_DEBUG("Perform CCA again, backoff count = " << m_backoffCount);
                 m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwprNoba::RequestCCA,
                                                             this); // Perform CCA again
             }
@@ -567,14 +572,24 @@ LrWpanCsmaCaSwprNoba::GetBatteryLifeExtension()
 void
 LrWpanCsmaCaSwprNoba::SetBackoffCounter()
 {
+    // FOR DEBUGGING
+    LatencyStatus strategy = GetStrategy();
+
     // transmission failed(NO ACK), include this to M, K model.
-    NS_LOG_DEBUG("CSMA/CA SWPR-NOBA: TX failed, appending this into model.");
     NS_ASSERT(m_resultQueue.size() == m_K);
 
     m_resultQueue.pop_front();
     m_resultQueue.push_back(false);
 
     NS_ASSERT(m_resultQueue.size() == m_K);
+    uint8_t bitPattern = 0;
+    for (bool result : m_resultQueue)
+    {
+        bitPattern = (bitPattern << 1) | static_cast<uint8_t>(result);
+    }
+    std::bitset<5> x(bitPattern);
+    const char* a = (strategy == NORMAL) ? "NORMAL" : (strategy == IMMEDIATE) ? "IMMEDIATE" : "URGENT";
+    NS_LOG_LOGIC("TX failed, STRATEGY WAS: " << a << " QUEUE STATUS: " << x);
 
     COLLISION_COUNT[m_TP]++;
     m_collisions++;
@@ -598,14 +613,16 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
     // TODO: beta distribution
     if(CW[m_TP].second > WL[m_TP])
     {
-        LatencyStatus strategy = GetStrategy();
+        strategy = GetStrategy();
+
         std::pair<double, double> params = STRATEGY[strategy];
         m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, WL[m_TP]);
         // m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
     }
     else
     {
-        LatencyStatus strategy = GetStrategy();
+        strategy = GetStrategy();
+
         std::pair<double, double> params = STRATEGY[strategy];
         m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
         // m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
@@ -663,6 +680,8 @@ LrWpanCsmaCaSwprNoba::AdjustSW()
         pow(2, COLLISION_COUNT[m_TP])
             - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
 
+    AdjustCW();
+
     NS_LOG_DEBUG(
         "CSMA/CA SWPR-NOBA: MODIFIED SW, CW, WL: \n"
         <<
@@ -687,16 +706,28 @@ LrWpanCsmaCaSwprNoba::AdjustSW()
 void
 LrWpanCsmaCaSwprNoba::TxSucceed()
 {
-    NS_LOG_DEBUG("CSMA/CA SWPR-NOBA: TX succeed, including this result to model.");
+    // FOR DEBUGGING
+    LatencyStatus strategy = GetStrategy();
+
     NS_ASSERT(m_resultQueue.size() == m_K);
     m_resultQueue.pop_front();
     m_resultQueue.push_back(true);
     NS_ASSERT(m_resultQueue.size() == m_K);
+
+    uint8_t bitPattern = 0;
+    for (bool result : m_resultQueue)
+    {
+        bitPattern = (bitPattern << 1) | static_cast<uint8_t>(result);
+    }
+    std::bitset<5> x(bitPattern);
+    const char* a = (strategy == NORMAL) ? "NORMAL" : (strategy == IMMEDIATE) ? "IMMEDIATE" : "URGENT";
+    NS_LOG_LOGIC("TX succeed, STRATEGY WAS: " << a << " QUEUE STATUS: " << x);
 }
 
 void
 LrWpanCsmaCaSwprNoba::AdjustCW()
 {
+    // NS_LOG_LOGIC("ADJUST CW(from): " << CW[m_TP].first << " ~ " << CW[m_TP].second << "with SW: " << SW[m_TP]);
     CW[m_TP].second =
         std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
 
@@ -724,6 +755,7 @@ LrWpanCsmaCaSwprNoba::AdjustCW()
         <<
         "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
     );
+    // NS_LOG_LOGIC("\tADJUSTED CW(to): " << CW[m_TP].first << " ~ " << CW[m_TP].second);
 }
 
 uint32_t
