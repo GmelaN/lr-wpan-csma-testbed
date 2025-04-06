@@ -12,6 +12,7 @@
 #include <ns3/lr-wpan-csmaca-noba.h>
 #include <ns3/lr-wpan-csmaca-standard.h>
 #include <ns3/lr-wpan-csmaca-sw-noba.h>
+#include <ns3/lr-wpan-csmaca-swpr-noba.h>
 #include <ns3/lr-wpan-delay-tag.h>
 #include <ns3/lr-wpan-module.h>
 #include <ns3/lr-wpan-priority-tag.h>
@@ -26,18 +27,20 @@
 #include <fstream>
 #include <iostream>
 
+#include <numeric>
+
 // #include "configuration.h"
 
 #define CSMA_CA_BEB 0
 #define CSMA_CA_NOBA 1
 #define CSMA_CA_SW_NOBA 2
 #define CSMA_CA_STANDARD 3
-#define CSMA_CA_SWPER_NOBA 4
+#define CSMA_CA_SWPR_NOBA 4
 
-#define CSMA_CA CSMA_CA_SW_NOBA
+#define CSMA_CA CSMA_CA_NOBA
 
-#define NODE_COUNT 8*9+1 //  8 priorities, 10 nodes per priority, EACH PAN, INCLUDING COORDINATOR
-#define PACKET_SIZE 30
+#define NODE_COUNT TP_COUNT * 10 + 1 //  8 priorities, 10 nodes per priority, EACH PAN, INCLUDING COORDINATOR
+#define PACKET_SIZE 20
 #define PAN_ID 5
 #define COORD_ADDR 1
 
@@ -81,6 +84,7 @@ SetupLogComponents()
     // LogComponentEnable("LrWpanMac", LOG_LEVEL_DEBUG);
     // LogComponentEnable("LrWpanPhy", LOG_LEVEL_DEBUG);
     // LogComponentEnable("LrWpanCsmaCaSwNoba", LOG_LEVEL_DEBUG);
+    // LogComponentEnable("LrWpanCsmaCaSwprNoba", LOG_DEBUG);
     // LogComponentEnable("LrWpanCsmaCaNoba", LOG_LEVEL_DEBUG);
     // LogComponentEnable("LrWpanCsmaCa", LOG_LEVEL_DEBUG);
 }
@@ -229,7 +233,7 @@ GenerateTraffic(NetDeviceContainer devices, double interval)
         p->AddPacketTag(tag1);
 
         LrWpanPriorityTag tag2;
-        tag2.Set(dev->GetMac()->getPriority());
+        tag2.Set(dev->GetMac()->GetPriority());
         p->AddPacketTag(tag2);
 
 
@@ -346,6 +350,9 @@ main(int argc, char* argv[])
         #elif CSMA_CA == CSMA_CA_STANDARD
         csma = CreateObject<LrWpanCsmaCaStandard>(priority % 8);
         dev->GetMac()->SetCsmaCaOption(CSMA_STANDARD);
+        #elif CSMA_CA == CSMA_CA_SWPR_NOBA
+        csma = CreateObject<LrWpanCsmaCaSwprNoba>(priority % 8);
+        dev->GetMac()->SetCsmaCaOption(CSMA_SWPR_NOBA);
         #else
         NS_ASSERT_MSG(false, "UNKNOWN CSMA CA");
         #endif
@@ -384,8 +391,8 @@ main(int argc, char* argv[])
             MlmeStartRequestParams params;
             params.m_panCoor = true;
             params.m_PanId = PAN_ID;
-            params.m_bcnOrd = 5;
-            params.m_sfrmOrd = 5;
+            params.m_bcnOrd = 12;
+            params.m_sfrmOrd = 12;
             Simulator::ScheduleWithContext(1,
                                            Seconds(0.01),
                                            &LrWpanMac::MlmeStartRequest,
@@ -435,6 +442,10 @@ main(int argc, char* argv[])
             DynamicCast<LrWpanCsmaCaStandard>(dev->GetCsmaCa())
                 ->TraceConnectWithoutContext("csmaCaStandardCollisionTrace",
                                              MakeCallback(&CsmaCaCollision));
+            #elif CSMA_CA == CSMA_CA_SWPR_NOBA
+            DynamicCast<LrWpanCsmaCaSwprNoba>(dev->GetCsmaCa())
+                ->TraceConnectWithoutContext("csmaCaSwprCollisionTrace",
+                                            MakeCallback(&CsmaCaCollision));
             #else
             NS_ASSERT_MSG(false, "Unknown CSMA CA");
             #endif
@@ -457,6 +468,9 @@ main(int argc, char* argv[])
                 std::string str;
                 switch (CSMA_CA)
                 {
+                    case CSMA_CA_STANDARD:
+                        str = "CSMA/CA STANDARD";
+                        break;
                     case CSMA_CA_BEB:
                         str = "CSMA/CA BEB";
                         break;
@@ -465,6 +479,9 @@ main(int argc, char* argv[])
                         break;
                     case CSMA_CA_SW_NOBA:
                         str = "CSMA/CA SW-NOBA";
+                        break;
+                    case CSMA_CA_SWPR_NOBA:
+                        str = "CSMA/CA SWPR-NOBA";
                         break;
                     default:
                         str = "UNKNOWN";
@@ -509,6 +526,38 @@ main(int argc, char* argv[])
                 {
                     std::cout << collisions[i] << "\t\t";
                 }
+                std::cout << "\nMAX DELAYS\t";
+                for(int i = 0; i < TP_COUNT; i++)
+                {
+                    std::cout << *std::max_element(rxDelay[i].begin(), rxDelay[i].end()) << "\t\t";
+                }
+                std::cout << "\nAVG DELAYS\t";
+                for(int i = 0; i < TP_COUNT; i++)
+                {
+                    std::cout
+                        << std::accumulate(rxDelay[i].begin(), rxDelay[i].end(), 0) / rxDelay[i].size()
+                        << "\t\t";
+                }
+                std::cout << "\nMAX RETX COUNTS\t";
+
+                std::vector<uint32_t> maxRetxPerTp(TP_COUNT, 0);
+                for(int i = 0; i < NODE_COUNT; i++)
+                {
+                    if (retransmissionCount[i].empty())
+                    {
+                        continue;
+                    }
+                    uint8_t tp = DynamicCast<LrWpanNetDevice>(nodes.Get(i)->GetDevice(0))->GetMac()->GetPriority();
+                    uint32_t maxReTx = *std::max_element(retransmissionCount[i].begin(), retransmissionCount[i].end());
+                    if (maxReTx > maxRetxPerTp[tp])
+                    {
+                        maxRetxPerTp[tp] = maxReTx;
+                    }
+                }
+                for(int i = 0; i < TP_COUNT; i++)
+                {
+                    std::cout << maxRetxPerTp[i] << "\t\t";
+                }
                 std::cout << std::endl;
 
                 std::ofstream out("result.csv");
@@ -525,7 +574,7 @@ main(int argc, char* argv[])
                 std::ofstream out2("result_retx.csv");
                 for(int i = 0; i < NODE_COUNT; i++)
                 {
-                    uint8_t tp = DynamicCast<LrWpanNetDevice>(nodes.Get(i)->GetDevice(0))->GetMac()->getPriority();
+                    uint8_t tp = DynamicCast<LrWpanNetDevice>(nodes.Get(i)->GetDevice(0))->GetMac()->GetPriority();
                     out2 << "NODE " << i << " (TP "  << (int) tp << "), ";
                     for (auto k = retransmissionCount[i].begin(); k != retransmissionCount[i].end(); k++)
                     {
@@ -551,7 +600,7 @@ main(int argc, char* argv[])
 
         uint16_t panId = dev->GetMac()->GetPanId();
         Mac16Address addr = dev->GetMac()->GetShortAddress();
-        priority = dev->GetMac()->getPriority();
+        priority = dev->GetMac()->GetPriority();
 
         std::cout
         << "PAN ID:\t" << panId
