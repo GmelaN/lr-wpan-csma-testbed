@@ -56,7 +56,7 @@ LrWpanCsmaCaSwprNoba::GetTypeId()
                             .AddConstructor<LrWpanCsmaCaSwprNoba>()
                             .AddTraceSource("csmaCaSwprNobaCollisionTrace",
                                             "CSMA/CA SWPR-NOBA collision count trace",
-                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwprNoba::m_csmaCaCollisionTrace),
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwprNoba::m_csmaCaSwprNobaCollisionTrace),
                                             "ns3::TracedCallback");
     return tid;
 }
@@ -514,7 +514,7 @@ LrWpanCsmaCaSwprNoba::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
-            m_csmaCaCollisionTrace(m_TP, m_collisions);
+            // m_csmaCaSwprNobaCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
@@ -578,7 +578,7 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
 
     COLLISION_COUNT[m_TP]++;
     m_collisions++;
-    m_csmaCaCollisionTrace(m_TP, m_collisions);
+    m_csmaCaSwprNobaCollisionTrace(m_TP, m_collisions);
 
     if(COLLISION_COUNT[m_TP] == 0)
     {

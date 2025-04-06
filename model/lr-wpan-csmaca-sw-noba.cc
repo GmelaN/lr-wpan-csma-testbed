@@ -48,7 +48,7 @@ LrWpanCsmaCaSwNoba::GetTypeId()
                             .AddConstructor<LrWpanCsmaCaSwNoba>()
                             .AddTraceSource("csmaCaSwNobaCollisionTrace",
                                             "CSMA/CA-SW-NOBA collision count trace",
-                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwNoba::m_csmaCaCollisionTrace),
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwNoba::m_csmaCaSwNobaCollisionTrace),
                                             "ns3::TracedCallback");
     return tid;
 }
@@ -190,7 +190,9 @@ LrWpanCsmaCaSwNoba::SetBackoffCounter()
 {
     COLLISION_COUNT[m_TP]++;
     m_collisions++;
-    m_csmaCaCollisionTrace(m_TP, m_collisions);
+    m_csmaCaSwNobaCollisionTrace(m_TP, m_collisions);
+
+    NS_LOG_LOGIC("TX FAILED, ADJUST SW(from): " << SW[m_TP]);
 
     if(COLLISION_COUNT[m_TP] == 0)
     {
@@ -203,6 +205,9 @@ LrWpanCsmaCaSwNoba::SetBackoffCounter()
             - std::min(round(std::tgamma(COLLISION_COUNT[m_TP] + 1)), pow(2, COLLISION_COUNT[m_TP]))
         ;
     }
+
+    NS_LOG_LOGIC("TX FAILED, ADJUST SW(to): " << SW[m_TP]);
+
     // with over 4 collisions we don't adjust SW anymore.
     this->AdjustCW();
 
@@ -632,7 +637,7 @@ LrWpanCsmaCaSwNoba::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
-            // m_csmaCaCollisionTrace(m_TP, m_collisions);
+            // m_csmaCaSwNobaCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;

@@ -45,7 +45,7 @@ LrWpanCsmaCaNoba::GetTypeId()
                             .AddConstructor<LrWpanCsmaCaNoba>()
                             .AddTraceSource("csmaCaNobaCollisionTrace",
                                             "CSMA/CA-NOBA collision count trace",
-                                            MakeTraceSourceAccessor(&LrWpanCsmaCaNoba::m_csmaCaCollisionTrace),
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaNoba::m_csmaCaNobaCollisionTrace),
                                             "ns3::TracedCallback");
     return tid;
 }
@@ -480,7 +480,7 @@ LrWpanCsmaCaNoba::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
-            // m_csmaCaCollisionTrace(m_TP, m_collisions);
+            // m_csmaCaNobaCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
@@ -534,7 +534,7 @@ void
 LrWpanCsmaCaNoba::SetBackoffCounter()
 {
     m_collisions++;
-    m_csmaCaCollisionTrace(m_TP, m_collisions);
+    m_csmaCaNobaCollisionTrace(m_TP, m_collisions);
     // TODO: vaildate this
 
     if(m_collisions % 2 == 0) {

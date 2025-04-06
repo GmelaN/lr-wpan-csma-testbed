@@ -45,7 +45,7 @@ LrWpanCsmaCaStandard::GetTypeId()
                             .AddConstructor<LrWpanCsmaCaStandard>()
                             .AddTraceSource("csmaCaStandardCollisionTrace",
                                             "CSMA/CA STANDARD collision count trace",
-                                            MakeTraceSourceAccessor(&LrWpanCsmaCaStandard::m_csmaCaCollisionTrace),
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaStandard::m_csmaCaStandardCollisionTrace),
                                             "ns3::TracedCallback");
     return tid;
 }
@@ -431,7 +431,7 @@ LrWpanCsmaCaStandard::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
-            // m_csmaCaCollisionTrace(m_TP, m_collisions);
+            // m_csmaCaStandardCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
@@ -485,7 +485,7 @@ void
 LrWpanCsmaCaStandard::SetBackoffCounter()
 {
     m_collisions++;
-    m_csmaCaCollisionTrace(m_TP, m_collisions);
+    m_csmaCaStandardCollisionTrace(m_TP, m_collisions);
 
     m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
 

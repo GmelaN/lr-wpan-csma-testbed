@@ -240,7 +240,7 @@ class LrWpanCsmaCaCommon : public Object
     /**
      * The trace source fired when collision occurs.
      */
-    TracedCallback<uint8_t, uint32_t> m_csmaCaCollisionTrace;
+    // TracedCallback<uint8_t, uint32_t> m_csmaCaCollisionTrace;
     /**
      * Traffic Priority
      */

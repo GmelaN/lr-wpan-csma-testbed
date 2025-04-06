@@ -311,7 +311,7 @@ private:
   /**
   * The trace source fired when collision occurs.
   */
-  TracedCallback<uint8_t, uint32_t> m_csmaCaCollisionTrace;
+  TracedCallback<uint8_t, uint32_t> m_csmaCaSwprNobaCollisionTrace;
   /**
    * transmission result queue.
    */
@@ -337,4 +337,4 @@ private:
 } // namespace lrwpan
 } // namespace ns3
 
-#endif /* LR_WPAN_CSMACA_SW_NOBA_H */
+#endif /* LR_WPAN_CSMACA_SWPR_NOBA_H */

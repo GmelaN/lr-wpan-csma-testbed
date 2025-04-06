@@ -242,6 +242,10 @@ class LrWpanCsmaCaStandard : public LrWpanCsmaCaCommon
     * Collision count.
     */
     uint32_t m_collisions;
+    /**
+    * The trace source fired when collision occurs.
+    */
+    TracedCallback<uint8_t, uint32_t> m_csmaCaStandardCollisionTrace;
 };
 
 } // namespace lrwpan

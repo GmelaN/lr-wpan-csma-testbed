@@ -243,6 +243,10 @@ class LrWpanCsmaCa : public LrWpanCsmaCaCommon
      * \return the time left in the CAP
      */
     Time GetTimeLeftInCap() override;
+    /**
+    * The trace source fired when collision occurs.
+    */
+    TracedCallback<uint8_t, uint32_t> m_csmaCaBebCollisionTrace;
     // /**
     //  * The callback to inform the cost of a transaction in slotted CSMA-CA.
     //  */

@@ -39,9 +39,9 @@ LrWpanCsmaCa::GetTypeId()
                             .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
                             .AddConstructor<LrWpanCsmaCa>()
-                            .AddTraceSource("csmaCaCollisionTrace",
+                            .AddTraceSource("csmaCaBebCollisionTrace",
                                 "CSMA/CA-NOBA collision count trace",
-                                MakeTraceSourceAccessor(&LrWpanCsmaCa::m_csmaCaCollisionTrace),
+                                MakeTraceSourceAccessor(&LrWpanCsmaCa::m_csmaCaBebCollisionTrace),
                                 "ns3::TracedCallback");
 return tid;
                             ;
@@ -522,7 +522,7 @@ LrWpanCsmaCa::PlmeCcaConfirm(PhyEnumeration status)
         }
         else
         {
-            m_csmaCaCollisionTrace(m_TP, m_CW);
+            m_csmaCaBebCollisionTrace(m_TP, m_CW);
             if (IsSlottedCsmaCa())
             {
                 m_CW = 2;
