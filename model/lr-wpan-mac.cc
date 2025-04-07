@@ -214,8 +214,8 @@ LrWpanMac::LrWpanMac()
     m_deviceCapability = DeviceType::FFD;
     m_macExtendedAddress = Mac64Address::Allocate();
     m_macPromiscuousMode = false;
-    m_macMaxFrameRetries = UINT8_MAX;
-    // m_macMaxFrameRetries = 3;
+    // m_macMaxFrameRetries = UINT8_MAX;
+    m_macMaxFrameRetries = 3;
     m_retransmission = 0;
     m_numCsmacaRetry = 0;
     m_txPkt = nullptr;
@@ -2720,7 +2720,7 @@ LrWpanMac::EnqueueTxQElement(Ptr<TxQueueElement> txQElement)
             m_mcpsDataConfirmCallback(confirmParams);
         }
         NS_LOG_DEBUG("TX Queue with size " << m_txQueue.size() << " is full, dropping packet");
-        // m_macTxDropTrace(txQElement->txQPkt, m_priority);
+        m_macTxDropTrace(txQElement->txQPkt, m_priority);
     }
 }
 
@@ -2745,7 +2745,7 @@ LrWpanMac::RemoveFirstTxQElement()
     m_txPkt = nullptr;
     m_retransmission = 0;
     m_numCsmacaRetry = 0;
-    m_macTxDequeueTrace(p);
+    m_macTxDequeueTrace(p, m_priority);
 }
 
 void

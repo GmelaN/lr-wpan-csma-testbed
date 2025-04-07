@@ -1032,7 +1032,7 @@ class LrWpanMac : public LrWpanMacBase
      *
      * \see class CallBackTraceSource
      */
-    TracedCallback<Ptr<const Packet>> m_macTxDequeueTrace;
+    TracedCallback<Ptr<const Packet>, uint8_t> m_macTxDequeueTrace;
 
     /**
      * The trace source fired when packets come into the "top" of the device
