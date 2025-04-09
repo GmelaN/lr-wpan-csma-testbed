@@ -49,7 +49,7 @@ class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
   static uint32_t WL[TP_COUNT]; // each TP
 
   // random distribution strategy.
-  static std::map<LatencyStatus, std::pair<double, double>> STRATEGY;
+  // static std::map<LatencyStatus, std::pair<double, double>> STRATEGY;
 
   public:
     static uint32_t COLLISION_COUNT[TP_COUNT]; // each TP
@@ -323,15 +323,12 @@ private:
   /**
    * alpha, beta from beta distribution.
    */
-  double m_alpha, m_beta;
+  double m_alpha;
+  double const m_beta = 1.1;
   /**
    * beta distribution
    */
   uint32_t BetaMappedRandom(double alpha, double beta, uint32_t x, uint32_t y);
-  /**
-   * get strategy from model.
-   */
-  LatencyStatus GetStrategy();
 };
 
 } // namespace lrwpan

@@ -19,6 +19,9 @@
 #include <random>
 #include <bitset>
 
+#define M 3
+#define K 5
+
 /*
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT                                                                      \
@@ -39,12 +42,12 @@ uint32_t LrWpanCsmaCaSwprNoba::WL[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaSwprNoba::COLLISION_COUNT[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaSwprNoba::SUCCESS_COUNT[TP_COUNT]; // each TP
 
-std::map<LatencyStatus, std::pair<double, double>>
-LrWpanCsmaCaSwprNoba::STRATEGY = {
-    {NORMAL, {1.7, 1.1}},
-    {IMMEDIATE, {1.0, 1.0}},
-    {URGENT, {0.8, 1.2}},
- };
+// std::map<LatencyStatus, std::pair<double, double>>
+// LrWpanCsmaCaSwprNoba::STRATEGY = {
+//     {NORMAL, {1.7, 1.1}},
+//     {IMMEDIATE, {1.0, 1.0}},
+//     {URGENT, {0.8, 1.2}},
+// };
 
 
 TypeId
@@ -131,6 +134,8 @@ LrWpanCsmaCaSwprNoba::InitializeGlobals(bool init)
 LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba(uint8_t priority)
 {
     NS_ASSERT(priority >= 0 && priority <= 7);
+    
+    m_alpha = 1.7;
 
     for(int i = 0; i < TP_COUNT; i++)
     {
@@ -154,8 +159,8 @@ LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba(uint8_t priority)
 
     // M, K model initialization
     // TODO: dynamic M, K allocation?
-    m_M = 3;
-    m_K = 5;
+    m_M = M;
+    m_K = K;
     NS_LOG_DEBUG("LR-WPAN SWPR-NOBA: M, K = " << m_M << ",\t" << m_K);
     for (uint32_t i = 0; i < m_K; i++)
     {
@@ -281,10 +286,7 @@ LrWpanCsmaCaSwprNoba::Start()
 
     m_collisions = 0; // collision counter C
 
-    // TODO: CHANGE THIS CODE (via beta distribution)
-    LatencyStatus strategy = GetStrategy();
-    std::pair<double, double> params = STRATEGY[strategy];
-    m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
+    m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, CW[m_TP].second);
     // m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
     NS_LOG_DEBUG("Using CSMA CA SWPR-NOBA, bakcoff count is: " << m_backoffCount);
 
@@ -325,11 +327,7 @@ LrWpanCsmaCaSwprNoba::RandomBackoffDelay()
     // transmission was previously deferred (m_randomBackoffPeriods != 0) or ACK not receiveed
     if (m_backoffCount == 0 || m_freezeBackoff)
     {
-        // TODO: CHANGE THIS CODE (via beta distribution)
-        LatencyStatus strategy = GetStrategy();
-
-        std::pair<double, double> params = STRATEGY[strategy];
-        m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
+        m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, CW[m_TP].second);
         // m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
@@ -588,8 +586,22 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
         bitPattern = (bitPattern << 1) | static_cast<uint8_t>(result);
     }
     std::bitset<5> x(bitPattern);
-    const char* a = (strategy == NORMAL) ? "NORMAL" : (strategy == IMMEDIATE) ? "IMMEDIATE" : "URGENT";
-    NS_LOG_LOGIC("TX failed, STRATEGY WAS: " << a << " QUEUE STATUS: " << x);
+    NS_LOG_LOGIC("TX failed, QUEUE STATUS: " << x);
+
+    // M, K DBP based beta distribution parameter tuning
+    int distance = m_M - (m_K - GetSussessCounts()); // tolerance count - failed count
+    if(distance <= 0) // packet must be sent
+    {
+        m_alpha = 0.8;
+    }
+    else if(distance == 1) // high priority needed
+    {
+        m_alpha = 0.9;
+    }
+    else if(distance > 1 && m_alpha < 0.8) // prepare for continuous failure
+    {
+        m_alpha += 0.1;
+    }
 
     COLLISION_COUNT[m_TP]++;
     m_collisions++;
@@ -613,18 +625,12 @@ LrWpanCsmaCaSwprNoba::SetBackoffCounter()
     // TODO: beta distribution
     if(CW[m_TP].second > WL[m_TP])
     {
-        strategy = GetStrategy();
-
-        std::pair<double, double> params = STRATEGY[strategy];
-        m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, WL[m_TP]);
+        m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, WL[m_TP]);
         // m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
     }
     else
     {
-        strategy = GetStrategy();
-
-        std::pair<double, double> params = STRATEGY[strategy];
-        m_backoffCount = BetaMappedRandom(params.first, params.second, CW[m_TP].first, CW[m_TP].second);
+        m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, CW[m_TP].second);
         // m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
     }
 
@@ -706,9 +712,7 @@ LrWpanCsmaCaSwprNoba::AdjustSW()
 void
 LrWpanCsmaCaSwprNoba::TxSucceed()
 {
-    // FOR DEBUGGING
-    LatencyStatus strategy = GetStrategy();
-
+    // TX succeed
     NS_ASSERT(m_resultQueue.size() == m_K);
     m_resultQueue.pop_front();
     m_resultQueue.push_back(true);
@@ -720,8 +724,23 @@ LrWpanCsmaCaSwprNoba::TxSucceed()
         bitPattern = (bitPattern << 1) | static_cast<uint8_t>(result);
     }
     std::bitset<5> x(bitPattern);
-    const char* a = (strategy == NORMAL) ? "NORMAL" : (strategy == IMMEDIATE) ? "IMMEDIATE" : "URGENT";
-    NS_LOG_LOGIC("TX succeed, STRATEGY WAS: " << a << " QUEUE STATUS: " << x);
+    NS_LOG_LOGIC("TX succeed, QUEUE STATUS: " << x);
+
+
+    // M, K DBP based beta distribution parameter tuning
+    int distance = m_M - (m_K - GetSussessCounts()); // tolerance count - failed count
+    if(distance <= 0) // packet must be sent
+    {
+        m_alpha = 0.8;
+    }
+    else if(distance == 1) // high priority needed
+    {
+        m_alpha = 0.9;
+    }
+    else if(distance > 1 && m_alpha < 1.7) // for other hungers, we yield resources.
+    {
+        m_alpha += 0.1;
+    }
 }
 
 void
