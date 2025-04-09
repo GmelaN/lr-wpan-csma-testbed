@@ -48,6 +48,7 @@ class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
   static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
   static uint32_t WL[TP_COUNT]; // each TP
 
+
   // random distribution strategy.
   // static std::map<LatencyStatus, std::pair<double, double>> STRATEGY;
 

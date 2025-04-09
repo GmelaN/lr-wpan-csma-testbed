@@ -571,7 +571,7 @@ void
 LrWpanCsmaCaSwprNoba::SetBackoffCounter()
 {
     // FOR DEBUGGING
-    LatencyStatus strategy = GetStrategy();
+    // LatencyStatus strategy = GetStrategy();
 
     // transmission failed(NO ACK), include this to M, K model.
     NS_ASSERT(m_resultQueue.size() == m_K);
@@ -796,30 +796,30 @@ LrWpanCsmaCaSwprNoba::BetaMappedRandom(const double alpha, const double beta, ui
 
     return static_cast<uint32_t>(x + (y - x) * z); // map to [x,y]
 }
-
-LatencyStatus
-LrWpanCsmaCaSwprNoba::GetStrategy()
-{
-    LatencyStatus status;
-    uint32_t successes = GetSussessCounts();
-    // if failed count > M
-    // WE MUST SEND IT.
-    if (m_K - successes >= m_M)
-    {
-        status = URGENT;
-    }
-    // I can tolerate yet.
-    else if (m_K - successes - 1 < m_M)
-    {
-        status = NORMAL;
-    }
-    // we should prepare more.
-    else
-    {
-        status = IMMEDIATE;
-    }
-    return status;
-}
+//
+// LatencyStatus
+// LrWpanCsmaCaSwprNoba::GetStrategy()
+// {
+//     LatencyStatus status;
+//     uint32_t successes = GetSussessCounts();
+//     // if failed count > M
+//     // WE MUST SEND IT.
+//     if (m_K - successes >= m_M)
+//     {
+//         status = URGENT;
+//     }
+//     // I can tolerate yet.
+//     else if (m_K - successes - 1 < m_M)
+//     {
+//         status = NORMAL;
+//     }
+//     // we should prepare more.
+//     else
+//     {
+//         status = IMMEDIATE;
+//     }
+//     return status;
+// }
 
 } // namespace lrwpan
 } // namespace ns3
