@@ -7,10 +7,11 @@
  *  Jo Seoung Hyeon <gmelan@gnu.ac.kr>
  */
 
-#ifndef LR_WPAN_CSMACA_SWPR_NOBA_H
-#define LR_WPAN_CSMACA_SWPR_NOBA_H
+#ifndef LR_WPAN_CSMACA_GNU_NOBA_H
+#define LR_WPAN_CSMACA_GNU_NOBA_H
 
 #define TP_COUNT 8
+#define CW_WINDOW_LENGTH 5
 
 #include "lr-wpan-mac.h"
 #include "lr-wpan-csmaca-common.h"
@@ -34,35 +35,43 @@ namespace lrwpan
  * state machine according to IEEE 802.15.4-2006, section 7.5.1.4.
  */
 
-enum LatencyStatus
-{
-  NORMAL = 0,
-  IMMEDIATE = 1,
-  URGENT = 2
-};
 
-
-class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
+class LrWpanCsmaCaGnuNoba: public LrWpanCsmaCaCommon
 {
+  // for beacon based coordination
   static uint32_t SW[TP_COUNT]; // each TP
-  static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
   static uint32_t WL[TP_COUNT]; // each TP
+  static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
 
+  static uint32_t TP_M[TP_COUNT]; // each TP
+  static uint32_t TP_K[TP_COUNT]; // each TP
 
-  // random distribution strategy.
-  // static std::map<LatencyStatus, std::pair<double, double>> STRATEGY;
+  // coordinator's measurement values
+  static std::deque<uint32_t> SUCCESS_WINDOW[TP_COUNT];
 
   public:
-    static uint32_t COLLISION_COUNT[TP_COUNT]; // each TP
     static uint32_t SUCCESS_COUNT[TP_COUNT]; // each TP
+   /**
+    * Update CW range, AdjustSW() must be called before.
+    */
+    void UpdateCW() const;
     /**
-       * Update SWs by given equation when three successful transmission condition.
-       */
-    void AdjustSW();
-    /**
-     * @param init bool, true when init situration
+     * In context of sink node successfully received data and sent ACK.
+     * Aggregate each TP's successful transmission.
      */
-    static void InitializeGlobals(bool init);
+    void TransmissionSucceed(uint8_t tp);
+    /**
+     * In context of one beacon period passed,
+     * we have to initialize aggregation variables.
+     */
+    void InitializeAggregations();
+    /**
+     * In context just before new beacon start,
+     * we have to calculate and deploy new CW range.
+     */
+    void CalculateCWRanges();
+
+
     /**
     * Get the type ID.
     *
@@ -72,13 +81,13 @@ class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
     /**
     * Default constructor.
     */
-    LrWpanCsmaCaSwprNoba();
-    ~LrWpanCsmaCaSwprNoba() override;
+    LrWpanCsmaCaGnuNoba();
+    ~LrWpanCsmaCaGnuNoba() override;
 
-    LrWpanCsmaCaSwprNoba(uint8_t priority);
+    LrWpanCsmaCaGnuNoba(uint8_t priority);
     // Delete copy constructor and assignment operator to avoid misuse
-    LrWpanCsmaCaSwprNoba(const LrWpanCsmaCaSwprNoba&) = delete;
-    LrWpanCsmaCaSwprNoba& operator=(const LrWpanCsmaCaSwprNoba&) = delete;
+    LrWpanCsmaCaGnuNoba(const LrWpanCsmaCaGnuNoba&) = delete;
+    LrWpanCsmaCaGnuNoba& operator=(const LrWpanCsmaCaGnuNoba&) = delete;
     /**
       * Set the MAC to which this CSMA/CA implementation is attached to.
       *
@@ -171,7 +180,7 @@ class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
     */
     void Cancel() override;
     /**
-    * In step 2 of the CSMA-CA, perform a random backoff in the range of 0 to 2^BE -1
+    * In step 2 of the CSMA-CA, perform a random backoff in the range
     */
     void RandomBackoffDelay();
     /**
@@ -249,43 +258,14 @@ class LrWpanCsmaCaSwprNoba : public LrWpanCsmaCaCommon
     {
       m_TP = TP;
     }
-
     uint8_t GetTP()
     {
       return m_TP;
     }
-
-  /**
-   * when ACK timeout occured, modify CW, SW and get backoff counter value
-   */
-  void SetBackoffCounter();
-  /**
-   * get previous K successful transmission count
-   */
-  uint32_t GetSussessCounts()
-  {
-    NS_ASSERT(m_resultQueue.size() == m_K);
-    uint32_t sussessCount = 0;
-    for (auto i = m_resultQueue.begin(); i != m_resultQueue.end(); ++i)
-    {
-      if (*i)
-      {
-        sussessCount++;
-      }
-    }
-    return sussessCount;
-  }
-
   uint32_t GetK() const { return m_K; }
   void SetK(uint32_t k) { m_K = k; }
   uint32_t GetM() const { return m_M; }
   void SetM(uint32_t m) { m_M = m; }
-
-  /**
-   * when TX succeed, we include this result to model.
-   */
-  void TxSucceed();
-
 private:
   /**
    * Traffic Priority
@@ -306,13 +286,9 @@ private:
   void DoDispose() override;
   Time GetTimeLeftInCap() override;
   /**
-   * Update CW
-   */
-  void AdjustCW();
-  /**
   * The trace source fired when collision occurs.
   */
-  TracedCallback<uint8_t, uint32_t> m_csmaCaSwprNobaCollisionTrace;
+  TracedCallback<uint8_t, uint32_t> m_csmaCaGnuNobaCollisionTrace;
   /**
    * transmission result queue.
    */
@@ -325,14 +301,22 @@ private:
    * alpha, beta from beta distribution.
    */
   double m_alpha;
-  double const m_beta = 1.1;
+  double m_beta = 1.1;
   /**
    * beta distribution
    */
   uint32_t BetaMappedRandom(double alpha, double beta, uint32_t x, uint32_t y);
+  /**
+   * when ACK timeout occured, modify CW, SW and get backoff counter value
+   */
+  void AckTimeout();
+  /**
+   * get previous K successful transmission count
+   */
+  uint32_t GetDBP();
 };
 
 } // namespace lrwpan
 } // namespace ns3
 
-#endif /* LR_WPAN_CSMACA_SWPR_NOBA_H */
+#endif /* LR_WPAN_CSMACA_GNU_NOBA_H */

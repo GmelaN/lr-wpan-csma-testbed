@@ -7,7 +7,7 @@
  *  Jo Seoung Hyeon <gmelan@gnu.ac.kr>
  */
 
-#include "lr-wpan-csmaca-swpr-noba.h"
+#include "lr-wpan-csmaca-gnu-noba.h"
 #include "lr-wpan-constants.h"
 
 #include <ns3/log.h>
@@ -19,8 +19,11 @@
 #include <random>
 #include <bitset>
 
-#define M 3
+#define M 4
 #define K 5
+
+#define TP_M_VALUE 3
+#define TP_K_VALUE 5
 
 /*
 #undef NS_LOG_APPEND_CONTEXT
@@ -32,84 +35,114 @@ namespace ns3
 namespace lrwpan
 {
 
-NS_LOG_COMPONENT_DEFINE("LrWpanCsmaCaSwprNoba");
-NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaSwprNoba);
+NS_LOG_COMPONENT_DEFINE("LrWpanCsmaCaGnuNoba");
+NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaGnuNoba);
 
 
-uint32_t LrWpanCsmaCaSwprNoba::SW[TP_COUNT]; // each TP
-std::pair<uint32_t, uint32_t> LrWpanCsmaCaSwprNoba::CW[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaSwprNoba::WL[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaSwprNoba::COLLISION_COUNT[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaSwprNoba::SUCCESS_COUNT[TP_COUNT]; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::SW[TP_COUNT]; // each TP
+std::pair<uint32_t, uint32_t> LrWpanCsmaCaGnuNoba::CW[TP_COUNT]; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 8}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::SUCCESS_COUNT[TP_COUNT] = {0, }; // each TP
 
-// std::map<LatencyStatus, std::pair<double, double>>
-// LrWpanCsmaCaSwprNoba::STRATEGY = {
-//     {NORMAL, {1.7, 1.1}},
-//     {IMMEDIATE, {1.0, 1.0}},
-//     {URGENT, {0.8, 1.2}},
-// };
+uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {2, 2, 3, 3, 4, 4, 5, 5}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {K, }; // each TP
 
 
 TypeId
-LrWpanCsmaCaSwprNoba::GetTypeId()
+LrWpanCsmaCaGnuNoba::GetTypeId()
 {
-    static TypeId tid = TypeId("ns3::lrwpan::LrWpanCsmaCaSwprNoba")
-                            .AddDeprecatedName("ns3::LrWpanCsmaCaSwprNoba")
+    static TypeId tid = TypeId("ns3::lrwpan::LrWpanCsmaCaGnuNoba")
+                            .AddDeprecatedName("ns3::LrWpanCsmaCaGnuNoba")
                             .SetParent<LrWpanCsmaCaCommon>()
                             .SetGroupName("LrWpan")
-                            .AddConstructor<LrWpanCsmaCaSwprNoba>()
-                            .AddTraceSource("csmaCaSwprNobaCollisionTrace",
-                                            "CSMA/CA SWPR-NOBA collision count trace",
-                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwprNoba::m_csmaCaSwprNobaCollisionTrace),
+                            .AddConstructor<LrWpanCsmaCaGnuNoba>()
+                            .AddTraceSource("csmaCaGnuNobaCollisionTrace",
+                                            "CSMA/CA GNU-NOBA collision count trace",
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaGnuNoba::m_csmaCaGnuNobaCollisionTrace),
                                             "ns3::TracedCallback");
     return tid;
 }
 
 void
-LrWpanCsmaCaSwprNoba::InitializeGlobals(bool init)
+LrWpanCsmaCaGnuNoba::InitializeAggregations()
 {
-    if (init)
+    // In context of one beacon period passed,
+    // we have to initialize aggregation variables.
+
+    for (uint32_t i = 0; i < TP_COUNT; i++)
     {
-        for(int i = 0; i < TP_COUNT; i++)
-        {
-            SW[i] = 1;
-        }
-    }
-
-    // WL[7] = 16;
-    // WL[6] = 28;
-    // WL[5] = 38;
-    // WL[4] = 46;
-    // WL[3] = 52;
-    // WL[2] = 56;
-    // WL[1] = 60;
-    // WL[0] = 64;
-
-    WL[7] = 8; WL[6] = 16; WL[5] = 24; WL[4] = 32;
-    WL[3] = 40; WL[2] = 48; WL[1] = 56; WL[0] = 64;
-
-    CW[7].first = 1;
-    for(int i = TP_COUNT - 1; i >= 0; i--)
-    {
-        if(i > 0)
-        {
-            CW[i].second = // CW_max,i
-                std::min(CW[i].first + SW[i], WL[i]);
-
-            CW[i-1].first = // CW_min,i-1
-                CW[i].second + 1;
-        }
-        else {
-            CW[i].second =
-                std::min(CW[i].first + SW[i], WL[i]);
-        }
-
-        COLLISION_COUNT[i] = 0;
+        TP_M[i] = TP_M_VALUE; // each TP
+        TP_K[i] = TP_K_VALUE; // each TP
         SUCCESS_COUNT[i] = 0;
     }
+    return;
+}
 
+void
+LrWpanCsmaCaGnuNoba::CalculateCWRanges()
+{
+    // In context just before new beacon start,
+    // we have to calculate and deploy new CW range.
+
+    // calculate deltas for each TP first.
+    for(int tp = 0; tp < TP_COUNT; tp++)
+    {
+        // calcuate average success count
+        uint64_t average = 0;
+        int delta = 0;
+        for(auto i = SUCCESS_WINDOW[tp].begin(); i < SUCCESS_WINDOW[tp].end(); i++)
+        {
+            average += (*i);
+        }
+        average /= static_cast<double>(SUCCESS_WINDOW->size());
+
+        // and get delta value.
+        delta = SUCCESS_COUNT[tp] - average;
+
+        // TODO: 구체적인 구간 산정 필요
+        // and then control CW range by delta value.
+        // n^2 - n (n >= 2)
+        if(delta > 10) // default: 1
+        {
+            SW[tp] = 1;
+        }
+        else if(delta > 8) // n = 2
+        {
+            SW[tp] = 2;
+        }
+        else if(delta > 4) // n = 3
+        {
+            SW[tp] = 6;
+        }
+        else if(delta > 2) // n = 4
+        {
+            SW[tp] = 12;
+        }
+        else // delta < 0, n = 5
+        {
+            SW[tp] = 20;
+        }
+    }
+    return;
+}
+
+
+void
+LrWpanCsmaCaGnuNoba::UpdateCW() const
+{
+    // In context of before transmit first beacon, after adjust SW by aggregated statistics.
+    // update CW ranges by NOBA-like method, CW + SW.
+
+    CW[m_TP].second =
+        std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
+
+    for (int i = m_TP - 1; i >= 0; i--)  // Adjust lower TPs
+    {
+        CW[i].first = CW[i + 1].second + 1;
+        CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
+    }
     NS_LOG_DEBUG(
-        "CSMA/CA-NOBA: Initializing SW, CW, WL...\n"
+        "CSMA/CA GNU-NOBA: MODIFIED SW, CW, WL: \n"
         <<
         "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
         <<
@@ -127,23 +160,36 @@ LrWpanCsmaCaSwprNoba::InitializeGlobals(bool init)
         <<
         "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
     );
+}
+
+
+
+
+void
+LrWpanCsmaCaGnuNoba::TransmissionSucceed(uint8_t tp)
+{
+    // in context of sink node successfully received data and sent ACK.
+    // we have to include this success transmission to aggregation.
+    NS_ASSERT(tp <= 7);
+    SUCCESS_COUNT[tp]++;
+
     return;
 }
 
 
-LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba(uint8_t priority)
+LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba(uint8_t priority)
 {
     NS_ASSERT(priority >= 0 && priority <= 7);
     
     m_alpha = 1.7;
 
+    // TODO: 최초 성공 카운트 설정
     for(int i = 0; i < TP_COUNT; i++)
     {
         SUCCESS_COUNT[i] = 0;
-        COLLISION_COUNT[i] = 0;
     }
 
-    InitializeGlobals(true);
+    InitializeGlobals();
 
     m_isSlotted = true;
     m_macBattLifeExt = false;
@@ -161,25 +207,27 @@ LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba(uint8_t priority)
     // TODO: dynamic M, K allocation?
     m_M = M;
     m_K = K;
-    NS_LOG_DEBUG("LR-WPAN SWPR-NOBA: M, K = " << m_M << ",\t" << m_K);
+    NS_LOG_DEBUG("LR-WPAN GNU-NOBA: M, K = " << m_M << ",\t" << m_K);
     for (uint32_t i = 0; i < m_K; i++)
     {
         m_resultQueue.push_back(true);
     }
 }
 
-LrWpanCsmaCaSwprNoba::LrWpanCsmaCaSwprNoba()
+LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba()
 {
     NS_ASSERT_MSG(false, "nodeCount, priority missing.");
 }
 
-LrWpanCsmaCaSwprNoba::~LrWpanCsmaCaSwprNoba()
+LrWpanCsmaCaGnuNoba::~LrWpanCsmaCaGnuNoba()
 {
     m_mac = nullptr;
 }
 
+
+
 void
-LrWpanCsmaCaSwprNoba::DoDispose()
+LrWpanCsmaCaGnuNoba::DoDispose()
 {
     m_lrWpanMacStateCallback = MakeNullCallback<void, MacState>();
     m_lrWpanMacTransCostCallback = MakeNullCallback<void, uint32_t>();
@@ -189,43 +237,43 @@ LrWpanCsmaCaSwprNoba::DoDispose()
 }
 
 void
-LrWpanCsmaCaSwprNoba::SetMac(Ptr<LrWpanMac> mac)
+LrWpanCsmaCaGnuNoba::SetMac(Ptr<LrWpanMac> mac)
 {
     m_mac = mac;
 }
 
 Ptr<LrWpanMac>
-LrWpanCsmaCaSwprNoba::GetMac()
+LrWpanCsmaCaGnuNoba::GetMac()
 {
     return m_mac;
 }
 
 void
-LrWpanCsmaCaSwprNoba::SetSlottedCsmaCa()
+LrWpanCsmaCaGnuNoba::SetSlottedCsmaCa()
 {
     m_isSlotted = true;
 }
 
 void
-LrWpanCsmaCaSwprNoba::SetUnSlottedCsmaCa()
+LrWpanCsmaCaGnuNoba::SetUnSlottedCsmaCa()
 {
     NS_ASSERT_MSG(false, "cannot set unslotted CSMA/CA NOBA.");
 }
 
 bool
-LrWpanCsmaCaSwprNoba::IsSlottedCsmaCa()
+LrWpanCsmaCaGnuNoba::IsSlottedCsmaCa()
 {
     return m_isSlotted;
 }
 
 bool
-LrWpanCsmaCaSwprNoba::IsUnSlottedCsmaCa()
+LrWpanCsmaCaGnuNoba::IsUnSlottedCsmaCa()
 {
     return !m_isSlotted;
 }
 
 Time
-LrWpanCsmaCaSwprNoba::GetTimeToNextSlot() const
+LrWpanCsmaCaGnuNoba::GetTimeToNextSlot() const
 {
     NS_LOG_FUNCTION(this);
 
@@ -279,7 +327,7 @@ LrWpanCsmaCaSwprNoba::GetTimeToNextSlot() const
 }
 
 void
-LrWpanCsmaCaSwprNoba::Start()
+LrWpanCsmaCaGnuNoba::Start()
 {
     NS_LOG_FUNCTION(this);
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA-CA supported.");
@@ -297,11 +345,11 @@ LrWpanCsmaCaSwprNoba::Start()
     // boundary)
     Time backoffBoundary = GetTimeToNextSlot();
     m_randomBackoffEvent =
-        Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaSwprNoba::RandomBackoffDelay, this);
+        Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaGnuNoba::RandomBackoffDelay, this);
 }
 
 void
-LrWpanCsmaCaSwprNoba::Cancel()
+LrWpanCsmaCaGnuNoba::Cancel()
 {
     m_randomBackoffEvent.Cancel();
     m_requestCcaEvent.Cancel();
@@ -312,7 +360,7 @@ LrWpanCsmaCaSwprNoba::Cancel()
 }
 
 void
-LrWpanCsmaCaSwprNoba::RandomBackoffDelay()
+LrWpanCsmaCaGnuNoba::RandomBackoffDelay()
 {
     NS_LOG_FUNCTION(this);
     NS_ASSERT_MSG(m_isSlotted, "only slotted CSMA/CA is supported.");
@@ -356,16 +404,16 @@ LrWpanCsmaCaSwprNoba::RandomBackoffDelay()
             m_backoffCount -= usedBackoffs;
             NS_LOG_DEBUG("No time in CAP to complete backoff delay, deferring to the next CAP");
             m_endCapEvent =
-                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwprNoba::DeferCsmaTimeout, this);
+                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaGnuNoba::DeferCsmaTimeout, this);
         }
         else
         {
-            m_canProceedEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaSwprNoba::CanProceed, this);
+            m_canProceedEvent = Simulator::Schedule(randomBackoff, &LrWpanCsmaCaGnuNoba::CanProceed, this);
         }
 }
 
 Time
-LrWpanCsmaCaSwprNoba::GetTimeLeftInCap()
+LrWpanCsmaCaGnuNoba::GetTimeLeftInCap()
 {
     Time currentTime;
     uint64_t capSymbols;
@@ -395,7 +443,7 @@ LrWpanCsmaCaSwprNoba::GetTimeLeftInCap()
 }
 
 void
-LrWpanCsmaCaSwprNoba::CanProceed()
+LrWpanCsmaCaGnuNoba::CanProceed()
 {
     NS_LOG_FUNCTION(this);
 
@@ -461,16 +509,16 @@ LrWpanCsmaCaSwprNoba::CanProceed()
         NS_LOG_DEBUG("Symbols left in CAP: " << (timeLeftInCap.GetSeconds() * symbolRate) << " ("
                                              << timeLeftInCap.As(Time::S) << ")");
 
-        m_endCapEvent = Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwprNoba::DeferCsmaTimeout, this);
+        m_endCapEvent = Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaGnuNoba::DeferCsmaTimeout, this);
     }
     else
     {
-        m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwprNoba::RequestCCA, this);
+        m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaGnuNoba::RequestCCA, this);
     }
 }
 
 void
-LrWpanCsmaCaSwprNoba::RequestCCA()
+LrWpanCsmaCaGnuNoba::RequestCCA()
 {
     NS_LOG_FUNCTION(this);
     m_ccaRequestRunning = true;
@@ -478,14 +526,14 @@ LrWpanCsmaCaSwprNoba::RequestCCA()
 }
 
 void
-LrWpanCsmaCaSwprNoba::DeferCsmaTimeout()
+LrWpanCsmaCaGnuNoba::DeferCsmaTimeout()
 {
     NS_LOG_FUNCTION(this);
     m_lrWpanMacStateCallback(MAC_CSMA_DEFERRED);
 }
 
 void
-LrWpanCsmaCaSwprNoba::PlmeCcaConfirm(PhyEnumeration status)
+LrWpanCsmaCaGnuNoba::PlmeCcaConfirm(PhyEnumeration status)
 {
     NS_LOG_FUNCTION(this << status);
 
@@ -511,7 +559,7 @@ LrWpanCsmaCaSwprNoba::PlmeCcaConfirm(PhyEnumeration status)
             else
             {
                 NS_LOG_DEBUG("Perform CCA again, backoff count = " << m_backoffCount);
-                m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaSwprNoba::RequestCCA,
+                m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaGnuNoba::RequestCCA,
                                                             this); // Perform CCA again
             }
         }
@@ -522,33 +570,33 @@ LrWpanCsmaCaSwprNoba::PlmeCcaConfirm(PhyEnumeration status)
             NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
             m_freezeBackoff = true;
             m_randomBackoffEvent =
-                Simulator::ScheduleNow(&LrWpanCsmaCaSwprNoba::RandomBackoffDelay, this);
+                Simulator::ScheduleNow(&LrWpanCsmaCaGnuNoba::RandomBackoffDelay, this);
         }
     }
 }
 
 void
-LrWpanCsmaCaSwprNoba::SetLrWpanMacTransCostCallback(LrWpanMacTransCostCallback c)
+LrWpanCsmaCaGnuNoba::SetLrWpanMacTransCostCallback(LrWpanMacTransCostCallback c)
 {
     NS_LOG_FUNCTION(this);
     m_lrWpanMacTransCostCallback = c;
 }
 
 void
-LrWpanCsmaCaSwprNoba::SetLrWpanMacStateCallback(LrWpanMacStateCallback c)
+LrWpanCsmaCaGnuNoba::SetLrWpanMacStateCallback(LrWpanMacStateCallback c)
 {
     NS_LOG_FUNCTION(this);
     m_lrWpanMacStateCallback = c;
 }
 
 void
-LrWpanCsmaCaSwprNoba::SetBatteryLifeExtension(bool batteryLifeExtension)
+LrWpanCsmaCaGnuNoba::SetBatteryLifeExtension(bool batteryLifeExtension)
 {
     m_macBattLifeExt = batteryLifeExtension;
 }
 
 int64_t
-LrWpanCsmaCaSwprNoba::AssignStreams(int64_t stream)
+LrWpanCsmaCaGnuNoba::AssignStreams(int64_t stream)
 {
     NS_LOG_FUNCTION(this);
     m_random->SetStream(stream);
@@ -556,229 +604,20 @@ LrWpanCsmaCaSwprNoba::AssignStreams(int64_t stream)
 }
 
 uint8_t
-LrWpanCsmaCaSwprNoba::GetNB()
+LrWpanCsmaCaGnuNoba::GetNB()
 {
     return m_collisions;
 }
 
 bool
-LrWpanCsmaCaSwprNoba::GetBatteryLifeExtension()
+LrWpanCsmaCaGnuNoba::GetBatteryLifeExtension()
 {
     return m_macBattLifeExt;
 }
 
-void
-LrWpanCsmaCaSwprNoba::SetBackoffCounter()
-{
-    // FOR DEBUGGING
-    // LatencyStatus strategy = GetStrategy();
-
-    // transmission failed(NO ACK), include this to M, K model.
-    NS_ASSERT(m_resultQueue.size() == m_K);
-
-    m_resultQueue.pop_front();
-    m_resultQueue.push_back(false);
-
-    NS_ASSERT(m_resultQueue.size() == m_K);
-    uint8_t bitPattern = 0;
-    for (bool result : m_resultQueue)
-    {
-        bitPattern = (bitPattern << 1) | static_cast<uint8_t>(result);
-    }
-    std::bitset<5> x(bitPattern);
-    NS_LOG_LOGIC("TX failed, QUEUE STATUS: " << x);
-
-    // M, K DBP based beta distribution parameter tuning
-    int distance = m_M - (m_K - GetSussessCounts()); // tolerance count - failed count
-    if(distance <= 0) // packet must be sent
-    {
-        m_alpha = 0.8;
-    }
-    else if(distance == 1) // high priority needed
-    {
-        m_alpha = 0.9;
-    }
-    else if(distance > 1 && m_alpha < 0.8) // prepare for continuous failure
-    {
-        m_alpha += 0.1;
-    }
-
-    COLLISION_COUNT[m_TP]++;
-    m_collisions++;
-    m_csmaCaSwprNobaCollisionTrace(m_TP, m_collisions);
-
-    if(COLLISION_COUNT[m_TP] == 0)
-    {
-        SW[m_TP] = 1;
-    }
-    else if (COLLISION_COUNT[m_TP] <= 4)
-    {
-        SW[m_TP] =
-            pow(2, COLLISION_COUNT[m_TP] + 1)
-            - std::min(round(std::tgamma(COLLISION_COUNT[m_TP] + 1)), pow(2, COLLISION_COUNT[m_TP]))
-        ;
-    }
-    // with over 4 collisions we don't adjust SW anymore.
-    this->AdjustCW();
-
-
-    // TODO: beta distribution
-    if(CW[m_TP].second > WL[m_TP])
-    {
-        m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, WL[m_TP]);
-        // m_backoffCount = m_random->GetInteger(CW[m_TP].first, WL[m_TP]);
-    }
-    else
-    {
-        m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, CW[m_TP].second);
-        // m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
-    }
-
-    NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
-    NS_LOG_DEBUG(
-        "CSMA/CA SWPR-NOBA: MODIFIED SW, CW, WL: \n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
-}
-void
-LrWpanCsmaCaSwprNoba::AdjustSW()
-{
-    SUCCESS_COUNT[m_TP]++;
-    if(SUCCESS_COUNT[m_TP] < 3)
-    {
-        return;
-    }
-    // over three success
-    SUCCESS_COUNT[m_TP] = 0;
-    // m_collisions = 0;
-    // decrease collision count by 1.
-    if (COLLISION_COUNT[m_TP] >= 1)
-    {
-        COLLISION_COUNT[m_TP]--;
-    }
-    // adjust SW if three success TX occured
-    if(COLLISION_COUNT[m_TP] == 0)
-    {
-        SW[m_TP] = 1;
-        return;
-    }
-    // with collisions over 4 we don't adjust SW anymore.
-    if (COLLISION_COUNT[m_TP] > 4)
-    {
-        return;
-    }
-    SW[m_TP] =
-        pow(2, COLLISION_COUNT[m_TP])
-            - (uint32_t) std::round(std::tgamma(COLLISION_COUNT[m_TP] - 1 + 1));
-
-    AdjustCW();
-
-    NS_LOG_DEBUG(
-        "CSMA/CA SWPR-NOBA: MODIFIED SW, CW, WL: \n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
-}
-
-void
-LrWpanCsmaCaSwprNoba::TxSucceed()
-{
-    // TX succeed
-    NS_ASSERT(m_resultQueue.size() == m_K);
-    m_resultQueue.pop_front();
-    m_resultQueue.push_back(true);
-    NS_ASSERT(m_resultQueue.size() == m_K);
-
-    uint8_t bitPattern = 0;
-    for (bool result : m_resultQueue)
-    {
-        bitPattern = (bitPattern << 1) | static_cast<uint8_t>(result);
-    }
-    std::bitset<5> x(bitPattern);
-    NS_LOG_LOGIC("TX succeed, QUEUE STATUS: " << x);
-
-
-    // M, K DBP based beta distribution parameter tuning
-    int distance = m_M - (m_K - GetSussessCounts()); // tolerance count - failed count
-    if(distance <= 0) // packet must be sent
-    {
-        m_alpha = 0.8;
-    }
-    else if(distance == 1) // high priority needed
-    {
-        m_alpha = 0.9;
-    }
-    else if(distance > 1 && m_alpha < 1.7) // for other hungers, we yield resources.
-    {
-        m_alpha += 0.1;
-    }
-}
-
-void
-LrWpanCsmaCaSwprNoba::AdjustCW()
-{
-    // NS_LOG_LOGIC("ADJUST CW(from): " << CW[m_TP].first << " ~ " << CW[m_TP].second << "with SW: " << SW[m_TP]);
-    CW[m_TP].second =
-        std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
-
-    for (int i = m_TP - 1; i >= 0; i--)  // Adjust lower TPs
-    {
-        CW[i].first = CW[i + 1].second + 1;
-        CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
-    }
-    NS_LOG_DEBUG(
-        "CSMA/CA SWPR-NOBA: MODIFIED SW, CW, WL: \n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
-    // NS_LOG_LOGIC("\tADJUSTED CW(to): " << CW[m_TP].first << " ~ " << CW[m_TP].second);
-}
 
 uint32_t
-LrWpanCsmaCaSwprNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
+LrWpanCsmaCaGnuNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
 {
     Ptr<GammaRandomVariable> gammaAlpha = CreateObject<GammaRandomVariable>();
     Ptr<GammaRandomVariable> gammaBeta = CreateObject<GammaRandomVariable>();
@@ -796,30 +635,6 @@ LrWpanCsmaCaSwprNoba::BetaMappedRandom(const double alpha, const double beta, ui
 
     return static_cast<uint32_t>(x + (y - x) * z); // map to [x,y]
 }
-//
-// LatencyStatus
-// LrWpanCsmaCaSwprNoba::GetStrategy()
-// {
-//     LatencyStatus status;
-//     uint32_t successes = GetSussessCounts();
-//     // if failed count > M
-//     // WE MUST SEND IT.
-//     if (m_K - successes >= m_M)
-//     {
-//         status = URGENT;
-//     }
-//     // I can tolerate yet.
-//     else if (m_K - successes - 1 < m_M)
-//     {
-//         status = NORMAL;
-//     }
-//     // we should prepare more.
-//     else
-//     {
-//         status = IMMEDIATE;
-//     }
-//     return status;
-// }
 
 } // namespace lrwpan
 } // namespace ns3
