@@ -34,6 +34,8 @@ namespace lrwpan
 class LrWpanCsmaCaStandard : public LrWpanCsmaCaCommon
 {
   static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
+  static uint32_t TP_K[TP_COUNT];
+  static uint32_t TP_M[TP_COUNT];
 
   public:
     /**
@@ -223,6 +225,10 @@ class LrWpanCsmaCaStandard : public LrWpanCsmaCaCommon
 
     void SetBackoffCounter();
 
+    void TxSucceed();
+
+    void AckTimeout();
+
   private:
     void DoDispose() override;
     /**
@@ -246,6 +252,14 @@ class LrWpanCsmaCaStandard : public LrWpanCsmaCaCommon
     * The trace source fired when collision occurs.
     */
     TracedCallback<uint8_t, uint32_t> m_csmaCaStandardCollisionTrace;
+    /**
+    * The trace source fired when dynamic failure occurs.
+    */
+    TracedCallback<uint8_t> m_csmaCaStandardMKViolationTrace;
+    /**
+     * transmission result queue.
+     */
+    std::deque<bool> m_resultQueue;
 };
 
 } // namespace lrwpan

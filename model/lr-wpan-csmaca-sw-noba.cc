@@ -37,6 +37,8 @@ uint32_t LrWpanCsmaCaSwNoba::WL[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaSwNoba::COLLISION_COUNT[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaSwNoba::SUCCESS_COUNT[TP_COUNT]; // each TP
 
+uint32_t LrWpanCsmaCaSwNoba::TP_M[TP_COUNT] = {6, 6, 7, 7, 8, 8, 9, 10}; // each TP
+uint32_t LrWpanCsmaCaSwNoba::TP_K[TP_COUNT] = {10, 10, 10, 10, 10, 10, 10, 10}; // each TP
 
 TypeId
 LrWpanCsmaCaSwNoba::GetTypeId()
@@ -49,7 +51,12 @@ LrWpanCsmaCaSwNoba::GetTypeId()
                             .AddTraceSource("csmaCaSwNobaCollisionTrace",
                                             "CSMA/CA-SW-NOBA collision count trace",
                                             MakeTraceSourceAccessor(&LrWpanCsmaCaSwNoba::m_csmaCaSwNobaCollisionTrace),
-                                            "ns3::TracedCallback");
+                                            "ns3::TracedCallback")
+                            .AddTraceSource("csmaCaSwNobaMKViolationTrace",
+                                            "CSMA/CA SW-NOBA m, k violation trace",
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaSwNoba::m_csmaCaSwNobaMKViolationTrace),
+                                            "ns3::TracedCallback")
+                            ;
     return tid;
 }
 
@@ -143,6 +150,11 @@ LrWpanCsmaCaSwNoba::LrWpanCsmaCaSwNoba(uint8_t priority)
     m_collisions = 0;
     m_backoffCount = 0;
     m_freezeBackoff = false;
+
+    for (uint32_t i = 0; i < TP_K[m_TP]; i++)
+    {
+        m_resultQueue.push_back(true);
+    }
 }
 
 LrWpanCsmaCaSwNoba::LrWpanCsmaCaSwNoba()
@@ -184,6 +196,25 @@ LrWpanCsmaCaSwNoba::Start()
     m_randomBackoffEvent =
         Simulator::Schedule(backoffBoundary, &LrWpanCsmaCaSwNoba::RandomBackoffDelay, this);
 }
+
+
+void
+LrWpanCsmaCaSwNoba::AckTimeout()
+{
+    // update (m, k) queue
+    NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
+    m_resultQueue.pop_front();
+    m_resultQueue.push_back(false);
+    NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
+
+    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
+    if (successCount < TP_M[m_TP])
+    {
+        // (m, k) rule violation detected
+        m_csmaCaSwNobaMKViolationTrace(m_TP);
+    }
+}
+
 
 void
 LrWpanCsmaCaSwNoba::SetBackoffCounter()
@@ -247,6 +278,21 @@ void
 LrWpanCsmaCaSwNoba::AdjustSW()
 {
     // after successful transmission
+
+
+    // update (m, k) queue
+    NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
+    m_resultQueue.pop_front();
+    m_resultQueue.push_back(true);
+    NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
+
+    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
+    if (successCount < TP_M[m_TP])
+    {
+        // (m, k) rule violation detected
+        m_csmaCaSwNobaMKViolationTrace(m_TP);
+    }
+
     SUCCESS_COUNT[m_TP]++;
     if(SUCCESS_COUNT[m_TP] < 3)
     {

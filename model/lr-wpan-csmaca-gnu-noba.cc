@@ -50,8 +50,8 @@ uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 10}; /
 uint32_t LrWpanCsmaCaGnuNoba::SUCCESS_COUNT[TP_COUNT] = {0, }; // each TP
 std::deque<uint32_t> LrWpanCsmaCaGnuNoba::SUCCESS_WINDOW[TP_COUNT];
 
-uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {2, 2, 3, 3, 4, 4, 5, 5}; // each TP
-uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {K, K, K, K, K, K, K, K}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {6, 6, 7, 7, 8, 8, 9, 10}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {10, 10, 10, 10, 10, 10, 10, 10}; // each TP
 
 
 TypeId
@@ -65,7 +65,12 @@ LrWpanCsmaCaGnuNoba::GetTypeId()
                             .AddTraceSource("csmaCaGnuNobaCollisionTrace",
                                             "CSMA/CA GNU-NOBA collision count trace",
                                             MakeTraceSourceAccessor(&LrWpanCsmaCaGnuNoba::m_csmaCaGnuNobaCollisionTrace),
-                                            "ns3::TracedCallback");
+                                            "ns3::TracedCallback")
+                            .AddTraceSource("csmaCaGnuNobaMKViolationTrace",
+                                            "CSMA/CA ",
+                                            MakeTraceSourceAccessor(&LrWpanCsmaCaGnuNoba::m_csmaCaGnuNobaMKViolationTrace),
+                                            "ns3::TracedCallback")
+                            ;
     return tid;
 }
 
@@ -112,6 +117,7 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
         // TODO: 구체적인 구간 산정 필요
         // and then control CW range by delta value.
         // n^2 - n (n >= 2)
+        // std::cout << delta << std::endl;
         if(delta > 10) // default: 1
         {
             SW[tp] = 1;
@@ -197,6 +203,12 @@ LrWpanCsmaCaGnuNoba::AckTimeout()
 }
 
 void
+LrWpanCsmaCaGnuNoba::SetBackoffCounter()
+{
+    m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, CW[m_TP].second);
+}
+
+void
 LrWpanCsmaCaGnuNoba::TransmissionSucceed()
 {
     // in context of sink node successfully received data and sent ACK.
@@ -241,22 +253,55 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha()
     }
 
     int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
-    bool isviolated = successCount >= TP_M[m_TP];
+    bool isviolated = successCount < TP_M[m_TP];
 
     if (isviolated)
     {
         // (m, k) rule violation detected
         m_alpha = MIN_ALPHA;
+        m_csmaCaGnuNobaMKViolationTrace(m_TP);
+
+        std::cout << "DYNAMIC FAILURE AT TP " << (int) m_TP << std::endl;
+        m_resultQueue.clear();
+        m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
+
+        return;
     }
-    else
-    {
-        double alpha = 1.7 - (distBasedPriority * distBasedPriority - distBasedPriority) * 0.05;
-        m_alpha = std::max(MIN_ALPHA, std::min(alpha, MAX_ALPHA));
+    // else
+    // {
+    //     double alpha = 1.7 - (distBasedPriority * distBasedPriority - distBasedPriority) * 0.1;
+    //     m_alpha = std::max(MIN_ALPHA, std::min(alpha, MAX_ALPHA));
+    // }
+
+
+    // 계산: 현재 DBP
+    double decayFactor = (distBasedPriority * distBasedPriority - distBasedPriority);
+
+    // 조절 강도 변화: DBP 클수록 감소 효과 줄고, 작을수록 크다
+    double alphaDecay = decayFactor * 0.12;   // ✅ 더 aggressive decay
+    double alphaBase = 1.65;
+
+    // soft clipping 증가
+    double alpha = alphaBase - alphaDecay;
+
+    // soft 상승 제어: 안정 시 천천히
+    if (m_alpha < alpha) {
+        // 증가 시에는 매우 느리게
+        m_alpha = std::min(m_alpha + 0.02, alpha);
+    } else {
+        // 감소는 바로 반영
+        m_alpha = alpha;
     }
+
+    // 범위 제한
+    m_alpha = std::max(MIN_ALPHA, std::min(m_alpha, MAX_ALPHA));
+
+
+
 }
 
 LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba(uint8_t priority)
-{`
+{
     NS_ASSERT(priority <= 7);
     
     m_alpha = 1.7;
@@ -716,6 +761,10 @@ LrWpanCsmaCaGnuNoba::GetBatteryLifeExtension()
 uint32_t
 LrWpanCsmaCaGnuNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
 {
+    // if (m_TP >= 6)
+    // {
+    //     return m_random->GetInteger(x, y);
+    // }
     Ptr<GammaRandomVariable> gammaAlpha = CreateObject<GammaRandomVariable>();
     Ptr<GammaRandomVariable> gammaBeta = CreateObject<GammaRandomVariable>();
 

@@ -214,8 +214,8 @@ LrWpanMac::LrWpanMac()
     m_deviceCapability = DeviceType::FFD;
     m_macExtendedAddress = Mac64Address::Allocate();
     m_macPromiscuousMode = false;
-    // m_macMaxFrameRetries = UINT8_MAX;
-    m_macMaxFrameRetries = 3;
+    m_macMaxFrameRetries = 1;
+    // m_macMaxFrameRetries = 3;
     m_retransmission = 0;
     m_numCsmacaRetry = 0;
     m_txPkt = nullptr;
@@ -2501,6 +2501,11 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                             Ptr<LrWpanCsmaCaGnuNoba> csma = DynamicCast<LrWpanCsmaCaGnuNoba>(m_csmaCa);
                             csma->TransmissionSucceed();
                         }
+                        if (m_csmaOption == CSMA_STANDARD)
+                        {
+                            Ptr<LrWpanCsmaCaStandard> csma = DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa);
+                            csma->TxSucceed();
+                        }
 
                         // TODO: check  if the IFS is the correct size after ACK.
                         Time ifsWaitTime = Seconds((double)GetIfsSize() / symbolRate);
@@ -2747,6 +2752,23 @@ LrWpanMac::AckWaitTimeout()
     if (!PrepareRetransmission())
     {
         SetLrWpanMacState(MAC_IDLE);
+
+        if(m_csmaOption == CSMA_NOBA) {
+            // NO ACK
+            // DynamicCast<LrWpanCsmaCaNoba>(m_csmaCa)->SetBackoffCounter();
+        }
+        else if(m_csmaOption == CSMA_SW_NOBA) {
+            // NO ACK
+            DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa)->AckTimeout();
+        }
+        else if(m_csmaOption == CSMA_GNU_NOBA) {
+            // NO ACK
+            DynamicCast<LrWpanCsmaCaGnuNoba>(m_csmaCa)->AckTimeout();
+        }
+        else if(m_csmaOption == CSMA_STANDARD) {
+            // NO ACK
+            DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa)->AckTimeout();
+        }
     }
     else
     {
@@ -2760,11 +2782,12 @@ LrWpanMac::AckWaitTimeout()
         }
         else if(m_csmaOption == CSMA_GNU_NOBA) {
             // NO ACK, increase collision count and recalculate backoff counter
-            DynamicCast<LrWpanCsmaCaGnuNoba>(m_csmaCa)->AckTimeout();
+            DynamicCast<LrWpanCsmaCaGnuNoba>(m_csmaCa)->SetBackoffCounter();
         }
         else if(m_csmaOption == CSMA_STANDARD) {
             // NO ACK, increase collision count and recalculate backoff counter
             DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa)->SetBackoffCounter();
+            DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa)->AckTimeout();
         }
         SetLrWpanMacState(MAC_CSMA);
     }

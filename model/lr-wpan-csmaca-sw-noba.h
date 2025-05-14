@@ -36,9 +36,8 @@ class LrWpanCsmaCaSwNoba : public LrWpanCsmaCaCommon
   static uint32_t SW[TP_COUNT]; // each TP
   static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
   static uint32_t WL[TP_COUNT]; // each TP
-
-
-
+  static uint32_t TP_M[TP_COUNT]; // each TP
+  static uint32_t TP_K[TP_COUNT]; // each TP
 
   public:
     static uint32_t COLLISION_COUNT[TP_COUNT]; // each TP
@@ -248,6 +247,8 @@ class LrWpanCsmaCaSwNoba : public LrWpanCsmaCaCommon
    */
   void SetBackoffCounter();
 
+  void AckTimeout();
+
 
 private:
   /**
@@ -276,6 +277,11 @@ private:
   * The trace source fired when collision occurs.
   */
   TracedCallback<uint8_t, uint32_t> m_csmaCaSwNobaCollisionTrace;
+  /**
+  * The trace source fired when dynamic failure occurs.
+  */
+  TracedCallback<uint8_t> m_csmaCaSwNobaMKViolationTrace;
+  std::deque<bool> m_resultQueue;
 };
 
 } // namespace lrwpan

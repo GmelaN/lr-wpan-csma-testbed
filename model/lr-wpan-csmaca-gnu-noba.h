@@ -46,6 +46,7 @@ class LrWpanCsmaCaGnuNoba: public LrWpanCsmaCaCommon
   static uint32_t TP_M[TP_COUNT]; // each TP
   static uint32_t TP_K[TP_COUNT]; // each TP
 
+
   // coordinator's measurement values
   static std::deque<uint32_t> SUCCESS_WINDOW[TP_COUNT];
 
@@ -268,6 +269,7 @@ class LrWpanCsmaCaGnuNoba: public LrWpanCsmaCaCommon
     * when ACK timeout occured, modify CW, SW and get backoff counter value
     */
   void AckTimeout();
+  void SetBackoffCounter();
 
 private:
   /**
@@ -292,6 +294,10 @@ private:
   * The trace source fired when collision occurs.
   */
   TracedCallback<uint8_t, uint32_t> m_csmaCaGnuNobaCollisionTrace;
+  /**
+  * The trace source fired when dynamic failure occurs.
+  */
+  TracedCallback<uint8_t> m_csmaCaGnuNobaMKViolationTrace;
   /**
    * transmission result queue.
    */
