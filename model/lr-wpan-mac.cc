@@ -14,14 +14,16 @@
 #include "lr-wpan-mac.h"
 
 #include "lr-wpan-constants.h"
+#include "lr-wpan-csmaca-gnu-noba.h"
 #include "lr-wpan-csmaca-noba.h"
 #include "lr-wpan-csmaca-standard.h"
 #include "lr-wpan-csmaca-sw-noba.h"
-#include "lr-wpan-csmaca-swpr-noba.h"
+#include "lr-wpan-csmaca-gnu-noba.h"
 #include "lr-wpan-csmaca.h"
 #include "lr-wpan-mac-header.h"
 #include "lr-wpan-mac-pl-headers.h"
 #include "lr-wpan-mac-trailer.h"
+#include "lr-wpan-retransmission-tag.h"
 
 #include <ns3/double.h>
 #include <ns3/log.h>
@@ -30,8 +32,6 @@
 #include <ns3/random-variable-stream.h>
 #include <ns3/simulator.h>
 #include <ns3/uinteger.h>
-
-#include "lr-wpan-retransmission-tag.h"
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT                                                                      \
@@ -1042,11 +1042,11 @@ LrWpanMac::SendOneBeacon()
     //     NS_LOG_DEBUG("(CSMA/CA SW-NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
     //     LrWpanCsmaCaSwNoba::InitializeGlobals(true);
     // }
-    // else if(m_csmaOption == CSMA_SWPR_NOBA)
-    // {
-    //     NS_LOG_DEBUG("(CSMA/CA SWPR-NOBA) NEW BEACON - INITALIZING GLOBAL VALUES...");
-    //     LrWpanCsmaCaSwNoba::InitializeGlobals(true);
-    // }
+    else if(m_csmaOption == CSMA_GNU_NOBA)
+    {
+        NS_LOG_DEBUG("(CSMA/CA GNU-NOBA) NEW BEACON - INITALIZING AGGREGATIONS...");
+        LrWpanCsmaCaGnuNoba::UpdateCW();
+    }
 
     NS_LOG_FUNCTION(this);
     NS_ASSERT(m_macState == MAC_IDLE);
@@ -2496,18 +2496,11 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                             Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
                             csma->AdjustSW();
                         }
-                        if (m_csmaOption == CSMA_SWPR_NOBA)
+                        if (m_csmaOption == CSMA_GNU_NOBA)
                         {
-                            Ptr<LrWpanCsmaCaSwprNoba> csma = DynamicCast<LrWpanCsmaCaSwprNoba>(m_csmaCa);
-                            csma->TxSucceed();
-                            csma->AdjustSW();
+                            Ptr<LrWpanCsmaCaGnuNoba> csma = DynamicCast<LrWpanCsmaCaGnuNoba>(m_csmaCa);
+                            csma->TransmissionSucceed();
                         }
-                        // if (m_csmaOption == CSMA_SWPER_NOBA)
-                        // {
-                        //     Ptr<LrWpanCsmaCaSwperNoba> csma = DynamicCast<LrWpanCsmaCaSwperNoba>(m_csmaCa);
-                        //     csma->
-                        // }
-
 
                         // TODO: check  if the IFS is the correct size after ACK.
                         Time ifsWaitTime = Seconds((double)GetIfsSize() / symbolRate);
@@ -2662,11 +2655,6 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                 //     Ptr<LrWpanCsmaCaSwNoba> csma = DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa);
                 //     LrWpanCsmaCaSwNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
                 // }
-                // if (m_csmaOption == CSMA_SWPR_NOBA)
-                // {
-                //     Ptr<LrWpanCsmaCaSwprNoba> csma = DynamicCast<LrWpanCsmaCaSwprNoba>(m_csmaCa);
-                //     LrWpanCsmaCaSwprNoba::SUCCESS_COUNT[csma->GetTP()] = 0;
-                // }
                 m_macRxDropTrace(originalPkt, m_priority);
             }
         }
@@ -2770,9 +2758,9 @@ LrWpanMac::AckWaitTimeout()
             // NO ACK, increase collision count and recalculate backoff counter
             DynamicCast<LrWpanCsmaCaSwNoba>(m_csmaCa)->SetBackoffCounter();
         }
-        else if(m_csmaOption == CSMA_SWPR_NOBA) {
+        else if(m_csmaOption == CSMA_GNU_NOBA) {
             // NO ACK, increase collision count and recalculate backoff counter
-            DynamicCast<LrWpanCsmaCaSwprNoba>(m_csmaCa)->SetBackoffCounter();
+            DynamicCast<LrWpanCsmaCaGnuNoba>(m_csmaCa)->AckTimeout();
         }
         else if(m_csmaOption == CSMA_STANDARD) {
             // NO ACK, increase collision count and recalculate backoff counter

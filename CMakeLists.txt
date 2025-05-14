@@ -19,7 +19,7 @@ build_lib(
     model/lr-wpan-csmaca.cc
     model/lr-wpan-csmaca-noba.cc
     model/lr-wpan-csmaca-sw-noba.cc
-    model/lr-wpan-csmaca-swpr-noba.cc
+    model/lr-wpan-csmaca-gnu-noba.cc
     model/lr-wpan-csmaca-standard.cc
     model/lr-wpan-csmaca-common.cc
     model/lr-wpan-delay-tag.cc
@@ -46,7 +46,7 @@ build_lib(
     model/lr-wpan-csmaca.h
     model/lr-wpan-csmaca-noba.h
     model/lr-wpan-csmaca-sw-noba.h
-    model/lr-wpan-csmaca-swpr-noba.h
+    model/lr-wpan-csmaca-gnu-noba.h
     model/lr-wpan-csmaca-standard.h
     model/lr-wpan-csmaca-common.h
     model/lr-wpan-delay-tag.h

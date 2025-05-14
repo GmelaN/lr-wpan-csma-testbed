@@ -19,17 +19,22 @@
 #include <random>
 #include <bitset>
 
-#define M 4
+
 #define K 5
 
-#define TP_M_VALUE 3
-#define TP_K_VALUE 5
+#define ALPHA_INCREASE_STEP 0.2
+#define ALPHA_DECREASE_STEP 0.1
+#define MIN_ALPHA 0.8
+#define MAX_ALPHA 1.7
+
+#define WINDOW_COUNT 5
 
 /*
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT                                                                      \
      std::clog << "[" << m_mac->GetShortAddress() << "] ";
 */
+
 namespace ns3
 {
 namespace lrwpan
@@ -41,11 +46,12 @@ NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaGnuNoba);
 
 uint32_t LrWpanCsmaCaGnuNoba::SW[TP_COUNT]; // each TP
 std::pair<uint32_t, uint32_t> LrWpanCsmaCaGnuNoba::CW[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 8}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 10}; // each TP
 uint32_t LrWpanCsmaCaGnuNoba::SUCCESS_COUNT[TP_COUNT] = {0, }; // each TP
+std::deque<uint32_t> LrWpanCsmaCaGnuNoba::SUCCESS_WINDOW[TP_COUNT];
 
 uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {2, 2, 3, 3, 4, 4, 5, 5}; // each TP
-uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {K, }; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {K, K, K, K, K, K, K, K}; // each TP
 
 
 TypeId
@@ -66,16 +72,13 @@ LrWpanCsmaCaGnuNoba::GetTypeId()
 void
 LrWpanCsmaCaGnuNoba::InitializeAggregations()
 {
-    // In context of one beacon period passed,
+    // In context just before new beacon start,
     // we have to initialize aggregation variables.
 
     for (uint32_t i = 0; i < TP_COUNT; i++)
     {
-        TP_M[i] = TP_M_VALUE; // each TP
-        TP_K[i] = TP_K_VALUE; // each TP
         SUCCESS_COUNT[i] = 0;
     }
-    return;
 }
 
 void
@@ -98,6 +101,13 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
 
         // and get delta value.
         delta = SUCCESS_COUNT[tp] - average;
+
+
+        // update success window.
+        NS_ASSERT(SUCCESS_WINDOW[tp].size() == WINDOW_COUNT);
+        SUCCESS_WINDOW[tp].pop_front();
+        SUCCESS_WINDOW[tp].push_back(SUCCESS_COUNT[tp]);
+        NS_ASSERT(SUCCESS_WINDOW[tp].size() == WINDOW_COUNT);
 
         // TODO: 구체적인 구간 산정 필요
         // and then control CW range by delta value.
@@ -123,74 +133,137 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
             SW[tp] = 20;
         }
     }
-    return;
 }
 
-
 void
-LrWpanCsmaCaGnuNoba::UpdateCW() const
+LrWpanCsmaCaGnuNoba::UpdateCW()
 {
+    CalculateCWRanges();
     // In context of before transmit first beacon, after adjust SW by aggregated statistics.
     // update CW ranges by NOBA-like method, CW + SW.
 
-    CW[m_TP].second =
-        std::min(CW[m_TP].first + SW[m_TP], WL[m_TP]);
+    CW[TP_COUNT-1].first = 1;
+    CW[TP_COUNT-1].second = std::min(CW[TP_COUNT-1].first + SW[TP_COUNT-1], WL[TP_COUNT-1]);
 
-    for (int i = m_TP - 1; i >= 0; i--)  // Adjust lower TPs
+    for (int i = TP_COUNT - 2; i >= 0; i--) // Adjust lower TPs
     {
         CW[i].first = CW[i + 1].second + 1;
         CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
-    NS_LOG_DEBUG(
-        "CSMA/CA GNU-NOBA: MODIFIED SW, CW, WL: \n"
-        <<
-        "SW: " << SW[0] << "\n" << SW[1] << "\n" << SW[2] << "\n" << SW[3] << "\n" << SW[4] << "\n" << SW[5] << "\n" << SW[6] << "\n"  << SW[7]
-        <<
-        '\n'
-        <<
-        "CW: "
-        << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-        << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-        << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-        << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-        << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-        << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-        << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-        << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-        <<
-        "WL: " << WL[0] << "\n" << WL[1] << "\n" << WL[2] << "\n" << WL[3] << "\n" << WL[4] << "\n" << WL[5] << "\n" << WL[6] << "\n"  << WL[7]
-    );
+
+    NS_LOG_DEBUG("CSMA/CA GNU-NOBA: MODIFIED SW, CW, WL: \n"
+                 << "SW: " << SW[0] << "\n"
+                 << SW[1] << "\t"
+                 << SW[2] << "\t"
+                 << SW[3] << "\t"
+                 << SW[4] << "\t"
+                 << SW[5] << "\t"
+                 << SW[6] << "\t"
+                 << SW[7] << '\n'
+                 << "CW: "
+                 << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+                 << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+                 << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+                 << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+                 << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+                 << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+                 << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+                 << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
+                 << "WL: " << WL[0] << "\n"
+                 << WL[1] << "\n"
+                 << WL[2] << "\n"
+                 << WL[3] << "\n"
+                 << WL[4] << "\n"
+                 << WL[5] << "\n"
+                 << WL[6] << "\n"
+                 << WL[7]);
+
+    InitializeAggregations();
 }
 
+void
+LrWpanCsmaCaGnuNoba::AckTimeout()
+{
+    // In context of source node transmitted packet and didn't receive ACK.
+    // Update (m, k) queue and modify alpha, beta.
 
+    // update (m, k) queue
+    NS_ASSERT(m_resultQueue.size() == m_K);
+    m_resultQueue.pop_front();
+    m_resultQueue.push_back(false);
+    NS_ASSERT(m_resultQueue.size() == m_K);
 
+    ModifyAlpha();
+}
 
 void
-LrWpanCsmaCaGnuNoba::TransmissionSucceed(uint8_t tp)
+LrWpanCsmaCaGnuNoba::TransmissionSucceed()
 {
     // in context of sink node successfully received data and sent ACK.
     // we have to include this success transmission to aggregation.
-    NS_ASSERT(tp <= 7);
-    SUCCESS_COUNT[tp]++;
+    SUCCESS_COUNT[m_TP]++;
 
-    return;
+    // update (m, k) queue
+    NS_ASSERT(m_resultQueue.size() == m_K);
+    m_resultQueue.pop_front();
+    m_resultQueue.push_back(true);
+    NS_ASSERT(m_resultQueue.size() == m_K);
+
+    ModifyAlpha();
 }
 
+void
+LrWpanCsmaCaGnuNoba::ModifyAlpha()
+{
+    // modify alpha and beta according to DBP.
+    int meetCount = 0;
+    int l = m_resultQueue.size();  // initial value: last index.
+    int k = m_resultQueue.size();
+    int distBasedPriority = 0;
+    for (int i = k - 1; i >= 0; --i)
+    {
+        if (m_resultQueue[i]) {
+            meetCount++;
+            if (meetCount == TP_M[m_TP]) {
+                l = i;  // m번째 meet의 위치
+                break;
+            }
+        }
+    }
+
+    if (meetCount < TP_M[m_TP]) // worst case.
+    {
+        distBasedPriority = k + 1;
+    }
+    else
+    {
+        distBasedPriority = k - l + 1;
+    }
+
+    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
+    bool isviolated = successCount >= TP_M[m_TP];
+
+    if (isviolated)
+    {
+        // (m, k) rule violation detected
+        m_alpha = MIN_ALPHA;
+    }
+    else
+    {
+        double alpha = 1.7 - (distBasedPriority * distBasedPriority - distBasedPriority) * 0.05;
+        m_alpha = std::max(MIN_ALPHA, std::min(alpha, MAX_ALPHA));
+    }
+}
 
 LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba(uint8_t priority)
-{
-    NS_ASSERT(priority >= 0 && priority <= 7);
+{`
+    NS_ASSERT(priority <= 7);
     
     m_alpha = 1.7;
 
     // TODO: 최초 성공 카운트 설정
-    for(int i = 0; i < TP_COUNT; i++)
-    {
-        SUCCESS_COUNT[i] = 0;
-    }
 
-    InitializeGlobals();
-
+    // EACH NODE: initialize m, k model.
     m_isSlotted = true;
     m_macBattLifeExt = false;
     m_random = CreateObject<UniformRandomVariable>();
@@ -204,13 +277,40 @@ LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba(uint8_t priority)
     m_freezeBackoff = false;
 
     // M, K model initialization
-    // TODO: dynamic M, K allocation?
-    m_M = M;
-    m_K = K;
+    m_M = TP_M[m_TP];
+    m_K = TP_K[m_TP];
     NS_LOG_DEBUG("LR-WPAN GNU-NOBA: M, K = " << m_M << ",\t" << m_K);
     for (uint32_t i = 0; i < m_K; i++)
     {
         m_resultQueue.push_back(true);
+    }
+
+
+    // COORDINATION: initialize success count
+    for(int i = 0; i < TP_COUNT; i++) { SUCCESS_COUNT[i] = 0; }
+
+    // COORDINATION: initialize SW, CW ranges
+    for(int i = 0; i < TP_COUNT; i++)
+    {
+        SW[i] = 1;
+
+        if (SUCCESS_WINDOW[i].empty())
+        {
+            for (int j = 0; j < WINDOW_COUNT; j++)
+            {
+                SUCCESS_WINDOW[i].push_back(30);
+            }
+        }
+        NS_ASSERT(SUCCESS_WINDOW[i].size() == WINDOW_COUNT);
+    }
+
+
+    CW[TP_COUNT-1].first = 1;
+    CW[TP_COUNT-1].second = std::min(CW[TP_COUNT-1].first + SW[TP_COUNT-1], WL[TP_COUNT-1]);
+    for (int i = TP_COUNT - 2; i >= 0; i--) // Adjust lower TPs
+    {
+        CW[i].first = CW[i + 1].second + 1;
+        CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
 }
 
@@ -223,8 +323,6 @@ LrWpanCsmaCaGnuNoba::~LrWpanCsmaCaGnuNoba()
 {
     m_mac = nullptr;
 }
-
-
 
 void
 LrWpanCsmaCaGnuNoba::DoDispose()
@@ -336,7 +434,7 @@ LrWpanCsmaCaGnuNoba::Start()
 
     m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, CW[m_TP].second);
     // m_backoffCount = m_random->GetInteger(1 + CW[m_TP].first, CW[m_TP].second); // backoff counter B
-    NS_LOG_DEBUG("Using CSMA CA SWPR-NOBA, bakcoff count is: " << m_backoffCount);
+    NS_LOG_DEBUG("Using CSMA CA GNU-NOBA, bakcoff count is: " << m_backoffCount);
 
     // m_coorDest to decide between incoming and outgoing superframes times
     m_coorDest = m_mac->IsCoordDest();
@@ -380,14 +478,14 @@ LrWpanCsmaCaGnuNoba::RandomBackoffDelay()
     }
 
     randomBackoff =
-        Seconds((double)(m_backoffCount * lrwpan::aUnitBackoffPeriod) / symbolRate);
+        Seconds(static_cast<double>(m_backoffCount * lrwpan::aUnitBackoffPeriod) / symbolRate);
 
         // We must make sure there is enough time left in the CAP, otherwise we continue in
         // the CAP of the next superframe after the transmission/reception of the beacon (and the
         // IFS)
         timeLeftInCap = GetTimeLeftInCap();
 
-        NS_LOG_DEBUG("CSMA/CA SWPR-NOBA: proceeding after random backoff of "
+        NS_LOG_DEBUG("CSMA/CA GNU-NOBA: proceeding after random backoff of "
                      << m_backoffCount << " periods ("
                      << (randomBackoff.GetSeconds() * symbolRate) << " symbols or "
                      << randomBackoff.As(Time::S) << ")");
@@ -614,7 +712,6 @@ LrWpanCsmaCaGnuNoba::GetBatteryLifeExtension()
 {
     return m_macBattLifeExt;
 }
-
 
 uint32_t
 LrWpanCsmaCaGnuNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)

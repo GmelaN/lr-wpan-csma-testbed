@@ -54,24 +54,22 @@ class LrWpanCsmaCaGnuNoba: public LrWpanCsmaCaCommon
    /**
     * Update CW range, AdjustSW() must be called before.
     */
-    void UpdateCW() const;
+    static void UpdateCW();
     /**
      * In context of sink node successfully received data and sent ACK.
      * Aggregate each TP's successful transmission.
      */
-    void TransmissionSucceed(uint8_t tp);
+    void TransmissionSucceed();
     /**
      * In context of one beacon period passed,
      * we have to initialize aggregation variables.
      */
-    void InitializeAggregations();
+    static void InitializeAggregations();
     /**
      * In context just before new beacon start,
      * we have to calculate and deploy new CW range.
      */
-    void CalculateCWRanges();
-
-
+    static void CalculateCWRanges();
     /**
     * Get the type ID.
     *
@@ -266,6 +264,11 @@ class LrWpanCsmaCaGnuNoba: public LrWpanCsmaCaCommon
   void SetK(uint32_t k) { m_K = k; }
   uint32_t GetM() const { return m_M; }
   void SetM(uint32_t m) { m_M = m; }
+  /**
+    * when ACK timeout occured, modify CW, SW and get backoff counter value
+    */
+  void AckTimeout();
+
 private:
   /**
    * Traffic Priority
@@ -307,13 +310,13 @@ private:
    */
   uint32_t BetaMappedRandom(double alpha, double beta, uint32_t x, uint32_t y);
   /**
-   * when ACK timeout occured, modify CW, SW and get backoff counter value
-   */
-  void AckTimeout();
-  /**
    * get previous K successful transmission count
    */
   uint32_t GetDBP();
+  /**
+   * Modify alpha value by given status.
+   */
+  void ModifyAlpha();
 };
 
 } // namespace lrwpan
