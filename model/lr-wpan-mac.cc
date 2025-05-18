@@ -193,7 +193,11 @@ LrWpanMac::GetTypeId()
                             "Trace source reporting the end of an "
                             "Interframe space (IFS)",
                             MakeTraceSourceAccessor(&LrWpanMac::m_macIfsEndTrace),
-                            "ns3::Packet::TracedCallback");
+                            "ns3::Packet::TracedCallback")
+            .AddTraceSource("BeaconStart",
+                            "Trace source right before transmit new beacon period",
+                            MakeTraceSourceAccessor(&LrWpanMac::m_beaconStartTrace),
+                            "ns3::TracedValueCallback::MacBsn");
     return tid;
 }
 
@@ -1031,6 +1035,10 @@ LrWpanMac::MlmeGetRequest(MacPibAttributeIdentifier id)
 void
 LrWpanMac::SendOneBeacon()
 {
+    if (m_coor)
+    {
+        m_beaconStartTrace(m_macBsn);
+    }
     // initalize parameters(CSMA/CA - NOBA)
     if(m_csmaOption == CSMA_NOBA)
     {
@@ -2787,7 +2795,6 @@ LrWpanMac::AckWaitTimeout()
         else if(m_csmaOption == CSMA_STANDARD) {
             // NO ACK, increase collision count and recalculate backoff counter
             DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa)->SetBackoffCounter();
-            DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa)->AckTimeout();
         }
         SetLrWpanMacState(MAC_CSMA);
     }

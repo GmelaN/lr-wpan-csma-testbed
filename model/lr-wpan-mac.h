@@ -1006,6 +1006,8 @@ class LrWpanMac : public LrWpanMacBase
      */
     TracedCallback<Time> m_macIfsEndTrace;
 
+    TracedCallback<SequenceNumber8> m_beaconStartTrace;
+
     /**
      * The trace source fired when packets are considered as successfully sent
      * or the transmission has been given up.
