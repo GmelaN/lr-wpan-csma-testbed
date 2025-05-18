@@ -218,8 +218,8 @@ LrWpanMac::LrWpanMac()
     m_deviceCapability = DeviceType::FFD;
     m_macExtendedAddress = Mac64Address::Allocate();
     m_macPromiscuousMode = false;
+    // m_macMaxFrameRetries = 0;
     m_macMaxFrameRetries = 1;
-    // m_macMaxFrameRetries = 3;
     m_retransmission = 0;
     m_numCsmacaRetry = 0;
     m_txPkt = nullptr;
@@ -1037,6 +1037,7 @@ LrWpanMac::SendOneBeacon()
 {
     if (m_coor)
     {
+        // std::cout << "\n---BEACON START---" << std::endl;
         m_beaconStartTrace(m_macBsn);
     }
     // initalize parameters(CSMA/CA - NOBA)
@@ -2491,6 +2492,7 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                     // If it is an ACK with the expected sequence number, finish the transmission
                     if (receivedMacHdr.GetSeqNum() == peekedMacHdr.GetSeqNum())
                     {
+                        // std::cout << "\tACK RECEIVED" << std::endl;
                         m_ackWaitTimeout.Cancel();
 
                         LrWpanRetransmissionTag txTag;

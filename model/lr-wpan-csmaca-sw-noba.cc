@@ -185,7 +185,8 @@ LrWpanCsmaCaSwNoba::Start()
 
     m_collisions = 0; // collision counter C
     m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second); // backoff counter B
-    NS_LOG_DEBUG("Using CSMA-CA SW-NOBA, bakcoff count is: " << m_backoffCount);
+
+    NS_LOG_INFO("backoff count is: " << m_backoffCount << "\t [" << (int) CW[m_TP].first << " ~ " << (int) CW[m_TP].second << "]");
 
     // m_coorDest to decide between incoming and outgoing superframes times
     m_coorDest = m_mac->IsCoordDest();
@@ -250,6 +251,7 @@ LrWpanCsmaCaSwNoba::SetBackoffCounter()
     // else
     // {
         m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
+    NS_LOG_INFO("backoff count is: " << m_backoffCount << "\t [" << (int) CW[m_TP].first << " ~ " << (int) CW[m_TP].second << "]");
     // }
 
     NS_LOG_DEBUG("MODIFIED backoff count is: " << m_backoffCount);
@@ -402,6 +404,7 @@ LrWpanCsmaCaSwNoba::RandomBackoffDelay()
     if (m_backoffCount == 0 || m_freezeBackoff)
     {
         m_backoffCount = m_random->GetInteger(CW[m_TP].first, CW[m_TP].second);
+        NS_LOG_INFO("backoff count is: " << m_backoffCount << "\t [" << (int) CW[m_TP].first << " ~ " << (int) CW[m_TP].second << "]");
     }
 
     randomBackoff =

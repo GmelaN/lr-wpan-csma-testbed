@@ -254,7 +254,7 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha()
         m_alpha = MIN_ALPHA;
         m_csmaCaGnuNobaMKViolationTrace(m_TP);
 
-        std::cout << "DYNAMIC FAILURE AT TP " << (int) m_TP << std::endl;
+        // std::cout << "DYNAMIC FAILURE AT TP " << (int) m_TP << std::endl;
         m_resultQueue.clear();
         m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
 
@@ -754,7 +754,6 @@ LrWpanCsmaCaGnuNoba::GetBatteryLifeExtension()
 uint32_t
 LrWpanCsmaCaGnuNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
 {
-    return 64;
     // if (m_TP >= 6)
     // {
     //     return m_random->GetInteger(x, y);
