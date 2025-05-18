@@ -85,7 +85,6 @@ LrWpanCsmaCaGnuNoba::InitializeAggregations()
         SUCCESS_COUNT[i] = 0;
     }
 }
-
 void
 LrWpanCsmaCaGnuNoba::CalculateCWRanges()
 {
@@ -157,8 +156,8 @@ LrWpanCsmaCaGnuNoba::UpdateCW()
         CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
 
-    NS_LOG_DEBUG("CSMA/CA GNU-NOBA: MODIFIED SW, CW, WL: \n"
-                 << "SW: " << SW[0] << "\n"
+    NS_LOG_DEBUG("CSMA/CA GNU-NOBA: MODIFIED SW, CW: \n"
+                 << "SW: " << SW[0] << "\t"
                  << SW[1] << "\t"
                  << SW[2] << "\t"
                  << SW[3] << "\t"
@@ -174,15 +173,7 @@ LrWpanCsmaCaGnuNoba::UpdateCW()
                  << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
                  << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
                  << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-                 << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n"
-                 << "WL: " << WL[0] << "\n"
-                 << WL[1] << "\n"
-                 << WL[2] << "\n"
-                 << WL[3] << "\n"
-                 << WL[4] << "\n"
-                 << WL[5] << "\n"
-                 << WL[6] << "\n"
-                 << WL[7]);
+                 << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n");
 
     InitializeAggregations();
 }
@@ -205,6 +196,8 @@ LrWpanCsmaCaGnuNoba::AckTimeout()
 void
 LrWpanCsmaCaGnuNoba::SetBackoffCounter()
 {
+    m_collisions++;
+    m_csmaCaGnuNobaCollisionTrace(m_TP, 0);
     m_backoffCount = BetaMappedRandom(m_alpha, m_beta, CW[m_TP].first, CW[m_TP].second);
 }
 
@@ -278,7 +271,7 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha()
     double decayFactor = (distBasedPriority * distBasedPriority - distBasedPriority);
 
     // 조절 강도 변화: DBP 클수록 감소 효과 줄고, 작을수록 크다
-    double alphaDecay = decayFactor * 0.12;   // ✅ 더 aggressive decay
+    double alphaDecay = decayFactor * 0.12;   // aggressive decay
     double alphaBase = 1.65;
 
     // soft clipping 증가
@@ -343,7 +336,7 @@ LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba(uint8_t priority)
         {
             for (int j = 0; j < WINDOW_COUNT; j++)
             {
-                SUCCESS_WINDOW[i].push_back(30);
+                SUCCESS_WINDOW[i].push_back(9999);
             }
         }
         NS_ASSERT(SUCCESS_WINDOW[i].size() == WINDOW_COUNT);
@@ -761,6 +754,7 @@ LrWpanCsmaCaGnuNoba::GetBatteryLifeExtension()
 uint32_t
 LrWpanCsmaCaGnuNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
 {
+    return 64;
     // if (m_TP >= 6)
     // {
     //     return m_random->GetInteger(x, y);
