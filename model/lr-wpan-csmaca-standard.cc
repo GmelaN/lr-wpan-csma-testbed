@@ -302,12 +302,12 @@ LrWpanCsmaCaStandard::TxSucceed()
     m_resultQueue.push_back(true);
     NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
 
-    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
-    if (successCount < TP_M[m_TP])
-    {
-        // (m, k) rule violation detected
-        m_csmaCaStandardMKViolationTrace(m_TP);
-    }
+    // uint32_t successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
+    // if (successCount < TP_M[m_TP])
+    // {
+    //     // (m, k) rule violation detected
+    //     m_csmaCaStandardMKViolationTrace(m_TP);
+    // }
 }
 
 void
@@ -319,11 +319,21 @@ LrWpanCsmaCaStandard::AckTimeout()
     m_resultQueue.push_back(false);
     NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
 
-    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
-    if (successCount < TP_M[m_TP])
+    // uint32_t successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
+    // if (successCount < TP_M[m_TP])
+    // {
+    //     // (m, k) rule violation detected
+    //     m_csmaCaStandardMKViolationTrace(m_TP);
+    // }
+
+
+    uint32_t failCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), false);
+    if (failCount > TP_K[m_TP] - TP_M[m_TP])
     {
         // (m, k) rule violation detected
         m_csmaCaStandardMKViolationTrace(m_TP);
+        m_resultQueue.clear();
+        m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
     }
 }
 

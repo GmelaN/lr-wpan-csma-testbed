@@ -322,7 +322,7 @@ private:
   /**
    * Modify alpha value by given status.
    */
-  void ModifyAlpha();
+  void ModifyAlpha(bool);
 };
 
 } // namespace lrwpan

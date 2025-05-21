@@ -190,7 +190,7 @@ LrWpanCsmaCaGnuNoba::AckTimeout()
     m_resultQueue.push_back(false);
     NS_ASSERT(m_resultQueue.size() == m_K);
 
-    ModifyAlpha();
+    ModifyAlpha(true);
 }
 
 void
@@ -214,14 +214,14 @@ LrWpanCsmaCaGnuNoba::TransmissionSucceed()
     m_resultQueue.push_back(true);
     NS_ASSERT(m_resultQueue.size() == m_K);
 
-    ModifyAlpha();
+    ModifyAlpha(false);
 }
 
 void
-LrWpanCsmaCaGnuNoba::ModifyAlpha()
+LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
 {
     // modify alpha and beta according to DBP.
-    int meetCount = 0;
+    uint32_t meetCount = 0;
     int l = m_resultQueue.size();  // initial value: last index.
     int k = m_resultQueue.size();
     int distBasedPriority = 0;
@@ -245,27 +245,21 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha()
         distBasedPriority = k - l + 1;
     }
 
-    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
-    bool isviolated = successCount < TP_M[m_TP];
-
-    if (isviolated)
+    uint32_t failCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), false);
+    if (failCount > TP_K[m_TP] - TP_M[m_TP])
     {
+        NS_ASSERT(isFailure);
         // (m, k) rule violation detected
-        m_alpha = MIN_ALPHA;
         m_csmaCaGnuNobaMKViolationTrace(m_TP);
-
-        // std::cout << "DYNAMIC FAILURE AT TP " << (int) m_TP << std::endl;
+        m_alpha = MIN_ALPHA;
         m_resultQueue.clear();
         m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
-
-        return;
     }
     // else
     // {
     //     double alpha = 1.7 - (distBasedPriority * distBasedPriority - distBasedPriority) * 0.1;
     //     m_alpha = std::max(MIN_ALPHA, std::min(alpha, MAX_ALPHA));
     // }
-
 
     // 계산: 현재 DBP
     double decayFactor = (distBasedPriority * distBasedPriority - distBasedPriority);
@@ -754,10 +748,6 @@ LrWpanCsmaCaGnuNoba::GetBatteryLifeExtension()
 uint32_t
 LrWpanCsmaCaGnuNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
 {
-    // if (m_TP >= 6)
-    // {
-    //     return m_random->GetInteger(x, y);
-    // }
     Ptr<GammaRandomVariable> gammaAlpha = CreateObject<GammaRandomVariable>();
     Ptr<GammaRandomVariable> gammaBeta = CreateObject<GammaRandomVariable>();
 

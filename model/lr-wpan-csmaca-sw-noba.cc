@@ -208,8 +208,8 @@ LrWpanCsmaCaSwNoba::AckTimeout()
     m_resultQueue.push_back(false);
     NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
 
-    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
-    if (successCount < TP_M[m_TP])
+    uint32_t failCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), false);
+    if (failCount > TP_K[m_TP] - TP_M[m_TP])
     {
         // (m, k) rule violation detected
         m_csmaCaSwNobaMKViolationTrace(m_TP);
@@ -280,20 +280,6 @@ void
 LrWpanCsmaCaSwNoba::AdjustSW()
 {
     // after successful transmission
-
-
-    // update (m, k) queue
-    NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
-    m_resultQueue.pop_front();
-    m_resultQueue.push_back(true);
-    NS_ASSERT(m_resultQueue.size() == TP_K[m_TP]);
-
-    int successCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), true);
-    if (successCount < TP_M[m_TP])
-    {
-        // (m, k) rule violation detected
-        m_csmaCaSwNobaMKViolationTrace(m_TP);
-    }
 
     SUCCESS_COUNT[m_TP]++;
     if(SUCCESS_COUNT[m_TP] < 3)
