@@ -29,30 +29,30 @@
 
  #include <numeric>
 
- // #include "configuration.h"
 
  #define CSMA_CA_BEB 0
  #define CSMA_CA_NOBA 1
  #define CSMA_CA_SW_NOBA 2
  #define CSMA_CA_STANDARD 3
  #define CSMA_CA_GNU_NOBA 4
-
- #define CSMA_CA CSMA_CA_STANDARD
- #define PACKET_SIZE 50
-
- static std::vector<int> NODE_COUNT_PER_TP = {7, 7, 6, 6, 4, 3, 2, 2};
-
- #define BEACON_ORDER 5
- #define SIM_TIME 600 + 10
-
  #define PAN_ID 5
  #define COORD_ADDR 1
+
+int CSMA_CA = CSMA_CA_SW_NOBA;
+int PACKET_SIZE = 50;
+int MAX_RETX = 3;
+int SIM_TIME = 300 + 10;
+int SCENARIO = 2; // 0: 저부하, 1: 중부하, 2: 고부하
+
+
+int BEACON_ORDER = 5;
 
  using namespace ns3;
  using namespace ns3::lrwpan;
 
- const static uint32_t NODE_COUNT =
-     std::accumulate(NODE_COUNT_PER_TP.begin(), NODE_COUNT_PER_TP.end(), 0) + 1;
+static std::vector<int> NODE_COUNT_PER_TP;
+
+static uint32_t NODE_COUNT;
 
  static uint32_t requestTX[TP_COUNT];
  static uint32_t sentTX[TP_COUNT];
@@ -68,7 +68,7 @@
  // static uint32_t txEnqueue[TP_COUNT];
  static uint32_t txDequeue[TP_COUNT];
 
- static std::vector<std::vector<uint32_t>> retransmissionCount(NODE_COUNT + 1);
+ static std::vector<std::vector<uint32_t>> retransmissionCount;
 
  static std::vector<double> rxDelay[TP_COUNT];
 
@@ -82,7 +82,7 @@ static NetDeviceContainer devices;
      NS_LOG_UNCOND(counter << "%");
      counter++;
      Simulator::Schedule(
-         Seconds((SIM_TIME - 10) / 100.0),
+         Seconds((SIM_TIME + 30) / 100.0),
          progress
      );
  }
@@ -100,7 +100,6 @@ static NetDeviceContainer devices;
      // LogComponentEnable("LrWpanCsmaCaNoba", LOG_LEVEL_DEBUG);
      // LogComponentEnable("LrWpanCsmaCa", LOG_LEVEL_DEBUG);
  }
-
 
  void
  CsmaCaCollision(uint8_t TP, uint32_t collision)
@@ -147,7 +146,6 @@ static NetDeviceContainer devices;
      dynamicFailure[TP]++;
  }
 
-
  void
  MacTxReq(Ptr<const Packet> pkt, uint8_t TP) // MacTx: total requested TX
  {
@@ -181,12 +179,6 @@ static NetDeviceContainer devices;
  {
      failTX[TP]++;
  }
-
- // void
- // TxEnqueue(Ptr<const Packet> pkt, uint8_t TP)
- // {
- //     txEnqueue[TP]++;
- // }
 
  void
  TxDequeue(Ptr<const Packet> p, uint8_t TP)
@@ -239,6 +231,35 @@ static NetDeviceContainer devices;
  int
  main(int argc, char* argv[])
  {
+     CommandLine cmd;
+
+     cmd.AddValue("csmaCa", "CSMA-CA algorithm (0: BEB, 1: NOBA, 2: SW_NOBA, 3: STANDARD, 4: GNU_NOBA)", CSMA_CA);
+     cmd.AddValue("packetSize", "Size of the packet", PACKET_SIZE);
+     cmd.AddValue("maxRetx", "Maximum number of retransmissions", MAX_RETX);
+     // cmd.AddValue("beaconOrder", "Beacon order value", BEACON_ORDER);
+     cmd.AddValue("simTime", "Simulation time (in seconds)", SIM_TIME);
+     cmd.AddValue("scen", "Scenario", SCENARIO);
+
+     cmd.Parse(argc, argv);
+
+    if (SCENARIO == 0)
+    {
+        NODE_COUNT_PER_TP = {4, 4, 3, 3, 2, 2, 1, 1};
+    }
+    else if(SCENARIO == 1)
+    {
+        NODE_COUNT_PER_TP = {6, 6, 4, 4, 2, 2, 1, 1}; // 운동 모니터링 시나리오
+    }
+    else if (SCENARIO == 2)
+    {
+        NODE_COUNT_PER_TP = {6, 6, 5, 5, 4, 4, 3, 3}; // 중환자 모니터링 시나리오
+    }
+
+    NODE_COUNT = std::accumulate(NODE_COUNT_PER_TP.begin(), NODE_COUNT_PER_TP.end(), 0) + 1;
+    for(uint32_t i = 0; i < NODE_COUNT + 1; i++)
+    {
+        retransmissionCount.push_back(std::vector<uint32_t>());
+    }
      Callback<void, SequenceNumber8> cb;
      ns3::RngSeedManager::SetSeed(42);
 
@@ -266,8 +287,12 @@ static NetDeviceContainer devices;
      uint16_t address = coordAddr + 1;
      // Vector center(0, 0, 0);
      // double radius = 5;
-     for (int i = 0; i < NODE_COUNT; i++)
+     for (uint32_t i = 0; i < NODE_COUNT; i++)
      {
+         while (tpCount >= NODE_COUNT_PER_TP[priority])
+         {
+             priority += 1;
+         }
          //////////////////// MAKE NEW NETDEVICE ////////////////////
          Ptr<LrWpanNetDevice> dev = CreateObject<LrWpanNetDevice>();
 
@@ -296,6 +321,7 @@ static NetDeviceContainer devices;
 
          ////////// SET ADDRESS AND ASSOCIATED COORDINATOR //////////
          ///// this setting must prior CSMA/CA
+         dev->GetMac()->SetMacMaxFrameRetries(MAX_RETX);
          dev->GetMac()->SetPanId(PAN_ID);
          dev->GetMac()->SetAssociatedCoor(Mac16Address(COORD_ADDR));
          if (i == 0) // coordinator
@@ -311,28 +337,39 @@ static NetDeviceContainer devices;
 
          //////////////////// SETUP CSMA/CA ////////////////////
          Ptr<LrWpanCsmaCaCommon> csma;
-         #if CSMA_CA == CSMA_CA_BEB
-         csma = CreateObject<LrWpanCsmaCa>(priority % 8);
-         dev->GetMac()->SetCsmaCaOption(CSMA_ORIGINAL);
-         #elif CSMA_CA == CSMA_CA_NOBA
-         csma = CreateObject<LrWpanCsmaCaNoba>(priority % 8);
-         dev->GetMac()->SetCsmaCaOption(CSMA_NOBA);
-         // csma->TraceConnectWithoutContext("csmaCaNobaMKViolationTrace", MakeCallback(&DynamicFailure));
-         #elif CSMA_CA == CSMA_CA_SW_NOBA
-         csma = CreateObject<LrWpanCsmaCaSwNoba>(priority % 8);
-         dev->GetMac()->SetCsmaCaOption(CSMA_SW_NOBA);
-         csma->TraceConnectWithoutContext("csmaCaSwNobaMKViolationTrace", MakeCallback(&DynamicFailure));
-         #elif CSMA_CA == CSMA_CA_STANDARD
-         csma = CreateObject<LrWpanCsmaCaStandard>(priority % 8);
-         dev->GetMac()->SetCsmaCaOption(CSMA_STANDARD);
-         csma->TraceConnectWithoutContext("csmaCaStandardMKViolationTrace", MakeCallback(&DynamicFailure));
-         #elif CSMA_CA == CSMA_CA_GNU_NOBA
-         csma = CreateObject<LrWpanCsmaCaGnuNoba>(priority % 8);
-         dev->GetMac()->SetCsmaCaOption(CSMA_GNU_NOBA);
-         csma->TraceConnectWithoutContext("csmaCaGnuNobaMKViolationTrace", MakeCallback(&DynamicFailure));
-         #else
-         NS_ASSERT_MSG(false, "UNKNOWN CSMA CA");
-         #endif
+         if (CSMA_CA == CSMA_CA_BEB)
+         {
+             csma = CreateObject<LrWpanCsmaCa>(priority % 8);
+             dev->GetMac()->SetCsmaCaOption(CSMA_ORIGINAL);
+         }
+         else if (CSMA_CA == CSMA_CA_NOBA)
+         {
+             csma = CreateObject<LrWpanCsmaCaNoba>(priority % 8);
+             dev->GetMac()->SetCsmaCaOption(CSMA_NOBA);
+             // csma->TraceConnectWithoutContext("csmaCaNobaMKViolationTrace", MakeCallback(&DynamicFailure));
+         }
+         else if (CSMA_CA == CSMA_CA_SW_NOBA)
+         {
+             csma = CreateObject<LrWpanCsmaCaSwNoba>(priority % 8);
+             dev->GetMac()->SetCsmaCaOption(CSMA_SW_NOBA);
+             csma->TraceConnectWithoutContext("csmaCaSwNobaMKViolationTrace", MakeCallback(&DynamicFailure));
+         }
+         else if (CSMA_CA == CSMA_CA_STANDARD)
+         {
+             csma = CreateObject<LrWpanCsmaCaStandard>(priority % 8);
+             dev->GetMac()->SetCsmaCaOption(CSMA_STANDARD);
+             csma->TraceConnectWithoutContext("csmaCaStandardMKViolationTrace", MakeCallback(&DynamicFailure));
+         }
+         else if (CSMA_CA == CSMA_CA_GNU_NOBA)
+         {
+             csma = CreateObject<LrWpanCsmaCaGnuNoba>(priority % 8);
+             dev->GetMac()->SetCsmaCaOption(CSMA_GNU_NOBA);
+             csma->TraceConnectWithoutContext("csmaCaGnuNobaMKViolationTrace", MakeCallback(&DynamicFailure));
+         }
+         else
+         {
+             NS_ASSERT_MSG(false, "UNKNOWN CSMA CA");
+         }
 
          if (i != 0)
          {
@@ -389,29 +426,40 @@ static NetDeviceContainer devices;
          }
          else
          {
-             #if CSMA_CA == CSMA_CA_BEB
-             DynamicCast<LrWpanCsmaCa>(dev->GetCsmaCa())
-                 ->TraceConnectWithoutContext("csmaCaBebCollisionTrace",
+             if (CSMA_CA == CSMA_CA_BEB)
+             {
+                 DynamicCast<LrWpanCsmaCa>(dev->GetCsmaCa())
+                     ->TraceConnectWithoutContext("csmaCaBebCollisionTrace",
                                               MakeCallback(&CsmaCaCollision));
-             #elif CSMA_CA == CSMA_CA_NOBA
-             DynamicCast<LrWpanCsmaCaNoba>(dev->GetCsmaCa())
-                 ->TraceConnectWithoutContext("csmaCaNobaCollisionTrace",
-                                              MakeCallback(&CsmaCaCollision));
-             #elif CSMA_CA == CSMA_CA_SW_NOBA
-             DynamicCast<LrWpanCsmaCaSwNoba>(dev->GetCsmaCa())
-                 ->TraceConnectWithoutContext("csmaCaSwNobaCollisionTrace",
-                                              MakeCallback(&CsmaCaCollision));
-             #elif CSMA_CA == CSMA_CA_STANDARD
-             DynamicCast<LrWpanCsmaCaStandard>(dev->GetCsmaCa())
-                 ->TraceConnectWithoutContext("csmaCaStandardCollisionTrace",
-                                              MakeCallback(&CsmaCaCollision));
-             #elif CSMA_CA == CSMA_CA_GNU_NOBA
-             DynamicCast<LrWpanCsmaCaGnuNoba>(dev->GetCsmaCa())
-                 ->TraceConnectWithoutContext("csmaCaGnuNobaCollisionTrace",
-                                             MakeCallback(&CsmaCaCollision));
-             #else
-             NS_ASSERT_MSG(false, "Unknown CSMA CA");
-             #endif
+             }
+             else if (CSMA_CA == CSMA_CA_NOBA)
+             {
+                 DynamicCast<LrWpanCsmaCaNoba>(dev->GetCsmaCa())
+                     ->TraceConnectWithoutContext("csmaCaNobaCollisionTrace",
+                                                  MakeCallback(&CsmaCaCollision));
+             }
+             else if (CSMA_CA == CSMA_CA_SW_NOBA)
+             {
+                 DynamicCast<LrWpanCsmaCaSwNoba>(dev->GetCsmaCa())
+                     ->TraceConnectWithoutContext("csmaCaSwNobaCollisionTrace",
+                                                  MakeCallback(&CsmaCaCollision));
+             }
+             else if (CSMA_CA == CSMA_CA_STANDARD)
+             {
+                 DynamicCast<LrWpanCsmaCaStandard>(dev->GetCsmaCa())
+                     ->TraceConnectWithoutContext("csmaCaStandardCollisionTrace",
+                                                  MakeCallback(&CsmaCaCollision));
+             }
+             else if (CSMA_CA == CSMA_CA_GNU_NOBA)
+             {
+                 DynamicCast<LrWpanCsmaCaGnuNoba>(dev->GetCsmaCa())
+                     ->TraceConnectWithoutContext("csmaCaGnuNobaCollisionTrace",
+                                                 MakeCallback(&CsmaCaCollision));
+             }
+             else
+             {
+                 NS_ASSERT_MSG(false, "Unknown CSMA CA");
+             }
          }
          // ADD DEVICE TO CONTAINER
          devices.Add(dev);
@@ -427,15 +475,13 @@ static NetDeviceContainer devices;
              priority++;
              tpCount = 0;
          }
-
-         // priority++;
      }
 
      ////////////////////////////// 5. DATA TRANSMISSION //////////////////////////////
      // Simulator::Schedule(Seconds(0), &GenerateTraffic, devices, INTERVAL);
 
      Simulator::Schedule(
-         Seconds(SIM_TIME - 10),
+         Seconds(SIM_TIME),
          MakeEvent(
              [cb] () mutable -> void
              {
@@ -447,13 +493,53 @@ static NetDeviceContainer devices;
 
 
      Simulator::Schedule(
-         Seconds(SIM_TIME - 0.00001),
+         Seconds(SIM_TIME + 30 - 0.00001),
          MakeEvent(
              [] () mutable -> void
              {
+                 std::string str;
                  std::cout << std::endl << std::endl << std::endl;
 
-                 std::string str;
+                 std::ostringstream filenameStream;
+
+                 switch (CSMA_CA)
+                {
+                    case CSMA_CA_STANDARD:
+                        str = "std";
+                        break;
+                    case CSMA_CA_BEB:
+                        str = "beb";
+                        break;
+                    case CSMA_CA_NOBA:
+                        str = "noba";
+                        break;
+                    case CSMA_CA_SW_NOBA:
+                        str = "swnoba";
+                        break;
+                    case CSMA_CA_GNU_NOBA:
+                        str = "gnunoba";
+                        break;
+                    default:
+                        str = "unknown";
+                        break;
+                }
+
+                std::string strs;
+                if(SCENARIO == 0) strs = "low";
+                else if(SCENARIO == 1) strs = "medium";
+                else if(SCENARIO == 2) strs = "high";
+                else strs = "unknown";
+
+                 filenameStream << str
+                                << "_scen" << SCENARIO
+                                << "_pkt" << PACKET_SIZE
+                                << "_sim" << SIM_TIME
+                                << "_retx" << MAX_RETX
+                                << "_bo" << BEACON_ORDER << ".txt";
+                 std::string filename = filenameStream.str();
+                 std::ofstream outFile(filename);
+                 std::ostream& out = outFile;  // 또는 std::cout 으로 쉽게 전환 가능
+
                  switch (CSMA_CA)
                  {
                      case CSMA_CA_STANDARD:
@@ -475,40 +561,67 @@ static NetDeviceContainer devices;
                          str = "UNKNOWN";
                          break;
                  }
+
+                 std::string s;
+                 s += "{";
+                 for (auto i = NODE_COUNT_PER_TP.begin(); i != NODE_COUNT_PER_TP.end(); i++)
+                 {
+                     s += std::to_string(*i);
+                     s += ", ";
+                 }
+                 s += "}";
+
                  std::cout << "SIMULATION DURATION: " << SIM_TIME << std::endl;
-                 std::cout << "CSMA/CA CONFIGURATION: " << str << std::endl;
-                 std::cout << "NODE COUNT: " << NODE_COUNT << std::endl;
+                 std::cout << "NODE COUNT: " << s << std::endl;
                  std::cout << "PACKET SIZE: " << PACKET_SIZE << std::endl;
+                 std::cout << "CSMA/CA CONFIGURATION: " << str << std::endl;
+
+                 out << "SIMULATION DURATION: " << SIM_TIME << std::endl;
+                 out << "NODE COUNT: " << s << std::endl;
+                 out << "PACKET SIZE: " << PACKET_SIZE << std::endl;
+                 out << "CSMA/CA CONFIGURATION: " << str << std::endl;
 
                  std::cout << "\t\t\t";
+                 out << "\t\t\t";
                  for (int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << "TP" << i << "\t";
+                     out << "TP" << i << "\t";
                  }
-                 std::cout << std::endl << "ENQUEUED TX\t";
+                 std::cout << std::endl << "ENQUEUED TX\t\t";
+                 out << std::endl << "ENQUEUED TX\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << requestTX[i] << "\t";
+                     out << requestTX[i] << "\t";
                  }
-                 std::cout << "\nDEQUEUED TX\t";
+                 std::cout << "\nDEQUEUED TX\t\t";
+                 out << "\nDEQUEUED TX\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << txDequeue[i] << "\t";
+                     out << txDequeue[i] << "\t";
                  }
                  std::cout << "\nSUCCESS TX\t\t";
+                 out << "\nSUCCESS TX\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << successTX[i] << "\t";
+                     out << successTX[i] << "\t";
                  }
                  std::cout << "\nFAILED TX\t\t";
+                 out << "\nFAILED TX\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << failTX[i] << "\t";
+                     out << failTX[i] << "\t";
                  }
                  std::cout << "\nDYNAMIC FAILURE\t\t";
+                 out << "\nDYNAMIC FAILURE\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << dynamicFailure[i] << "\t";
+                     out << dynamicFailure[i] << "\t";
                  }
                  // std::cout << "\nFAILED RX\t\t";
                  // for(int i = 0; i < TP_COUNT; i++)
@@ -516,35 +629,60 @@ static NetDeviceContainer devices;
                  //     std::cout << failRX[i] << "\t";
                  // }
                  std::cout << "\nSUCCESS RX\t\t";
+                 out << "\nSUCCESS RX\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << successRX[i] << "\t";
+                     out << successRX[i] << "\t";
                  }
                  std::cout << "\nCSMA/CA COLLISIONS\t";
+                 out << "\nCSMA/CA COLLISIONS\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << collisions[i] << "\t";
+                     out << collisions[i] << "\t";
                  }
                  std::cout << "\nMAX DELAYS\t\t";
+                 out << "\nMAX DELAYS\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
+                     if (NODE_COUNT_PER_TP[i] == 0)
+                     {
+                         std::cout << 0 << "\t";
+                         out << 0 << "\t";
+                         continue;
+                     }
                      std::cout << *std::max_element(rxDelay[i].begin(), rxDelay[i].end()) << "\t";
+                     out << *std::max_element(rxDelay[i].begin(), rxDelay[i].end()) << "\t";
                  }
                  std::cout << "\nAVG DELAYS\t\t";
+                 out << "\nAVG DELAYS\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
+                     if (NODE_COUNT_PER_TP[i] == 0)
+                     {
+                         std::cout << 0 << "\t";
+                         out << 0 << "\t";
+                         continue;
+                     }
                      std::cout
+                         << std::accumulate(rxDelay[i].begin(), rxDelay[i].end(), 0) / rxDelay[i].size()
+                         << "\t";
+                     out
                          << std::accumulate(rxDelay[i].begin(), rxDelay[i].end(), 0) / rxDelay[i].size()
                          << "\t";
                  }
                  std::cout << "\nMAC TX COUNTS\t\t";
+                 out << "\nMAC TX COUNTS\t\t";
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << sentTX[i] << "\t";
+                     out << sentTX[i] << "\t";
                  }
                  std::cout << "\nMAX RETX COUNTS\t\t";
+                 out << "\nMAX RETX COUNTS\t\t";
                  std::vector<uint32_t> maxRetxPerTp(TP_COUNT, 0);
-                 for(int i = 0; i < NODE_COUNT; i++)
+                 for(uint32_t i = 0; i < NODE_COUNT; i++)
                  {
                      if (retransmissionCount[i].empty())
                      {
@@ -560,28 +698,25 @@ static NetDeviceContainer devices;
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      std::cout << maxRetxPerTp[i] << "\t";
+                     out << maxRetxPerTp[i] << "\t";
                  }
                  std::cout << std::endl;
+                 out << std::endl;
 
-                 std::ofstream out("result.csv");
+                 std::ostringstream filenameStream2;
+                filenameStream2 << str
+                              << "_scen" << SCENARIO
+                              << "_pkt" << PACKET_SIZE
+                              << "_sim" << SIM_TIME
+                              << "_retx" << MAX_RETX
+                              << "_bo" << BEACON_ORDER << ".csv";
+                std::ofstream out2(filenameStream2.str());
                  for(int i = 0; i < TP_COUNT; i++)
                  {
-                     out << "TP" << i << ", ";
+                     out2 << "TP" << i << ", ";
                      for (auto k = rxDelay[i].begin(); k != rxDelay[i].end(); k++)
                      {
-                         out << static_cast<double>(*k) << ", ";
-                     }
-                     out << std::endl;
-                 }
-
-                 std::ofstream out2("result_retx.csv");
-                 for(int i = 0; i < NODE_COUNT; i++)
-                 {
-                     uint8_t tp = DynamicCast<LrWpanNetDevice>(nodes.Get(i)->GetDevice(0))->GetMac()->GetPriority();
-                     out2 << "NODE " << i << " (TP "  << (int) tp << "), ";
-                     for (auto k = retransmissionCount[i].begin(); k != retransmissionCount[i].end(); k++)
-                     {
-                         out2 << *k << ", ";
+                         out2 << static_cast<double>(*k) << ", ";
                      }
                      out2 << std::endl;
                  }
@@ -614,7 +749,7 @@ static NetDeviceContainer devices;
      std::cout << "\n\n==================================\n\n";
 
 
-     Simulator::Stop(Seconds(SIM_TIME));
+     Simulator::Stop(Seconds(SIM_TIME + 30));
      Simulator::Run();
 
      Simulator::Destroy();
