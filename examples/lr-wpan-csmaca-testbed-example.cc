@@ -38,18 +38,18 @@
  #define PAN_ID 5
  #define COORD_ADDR 1
 
-int CSMA_CA = CSMA_CA_SW_NOBA;
+int CSMA_CA = CSMA_CA_GNU_NOBA;
 int PACKET_SIZE = 50;
-int MAX_RETX = 3;
-int SIM_TIME = 300 + 10;
-int SCENARIO = 2; // 0: 저부하, 1: 중부하, 2: 고부하
+int MAX_RETX = 1;
+int SIM_TIME = 3600 + 30;
+int ncount = 2;
 
-
-int BEACON_ORDER = 5;
+int BEACON_ORDER = 4;
 
  using namespace ns3;
  using namespace ns3::lrwpan;
 
+#define MAX_NODE_COUNT_PER_TP 2
 static std::vector<int> NODE_COUNT_PER_TP;
 
 static uint32_t NODE_COUNT;
@@ -87,18 +87,36 @@ static NetDeviceContainer devices;
      );
  }
 
+std::vector<int> fillArray(int n)
+{
+     std::vector<int> arr(8, 0); // 초기 배열: [0, 0, 0, 0, 0, 0, 0, 0]
+     int value = 1;         // 넣을 값 (1부터 시작)
+     int remaining = n;
+
+     while (remaining > 0) {
+         for (int i = 7; i >= 0 && remaining > 0; --i) {
+             if (arr[i] == value - 1) {
+                 arr[i] = value;
+                 remaining--;
+             }
+         }
+         value++; // 한 사이클 끝나면 다음 값으로 증가
+     }
+     return arr;
+ }
 
  void
  SetupLogComponents()
  {
      LogComponentEnableAll(LOG_PREFIX_TIME);
      LogComponentEnableAll(LOG_PREFIX_FUNC);
-     // LogComponentEnable("LrWpanMac", LOG_LEVEL_DEBUG);
+     // LogComponentEnable("LrWpanMac", LOG_ALL);
      // LogComponentEnable("LrWpanPhy", LOG_ALL);
-     // LogComponentEnable("LrWpanCsmaCaSwNoba", LOG_INFO);
+     // LogComponentEnable("LrWpanCsmaCaSwNoba", LOG_ALL);
      // LogComponentEnable("LrWpanCsmaCaGnuNoba", LOG_ALL);
-     // LogComponentEnable("LrWpanCsmaCaNoba", LOG_LEVEL_DEBUG);
-     // LogComponentEnable("LrWpanCsmaCa", LOG_LEVEL_DEBUG);
+     // LogComponentEnable("LrWpanCsmaCaNoba", LOG_ALL);
+     // LogComponentEnable("LrWpanCsmaCa", LOG_ALL);
+     // LogComponentEnable("MultiModelSpectrumChannel", LOG_ALL);
  }
 
  void
@@ -220,7 +238,8 @@ static NetDeviceContainer devices;
          params2.m_txOptions = TX_OPTION_ACK;  // Enable direct transmission with Ack
 
          Simulator::ScheduleNow(
-            &LrWpanMac::McpsDataRequest,
+            // &LrWpanMac::McpsDataRequest,
+            &LrWpanMacBase::McpsDataRequest,
             dev->GetMac(),
             params2,
             p
@@ -238,28 +257,18 @@ static NetDeviceContainer devices;
      cmd.AddValue("maxRetx", "Maximum number of retransmissions", MAX_RETX);
      // cmd.AddValue("beaconOrder", "Beacon order value", BEACON_ORDER);
      cmd.AddValue("simTime", "Simulation time (in seconds)", SIM_TIME);
-     cmd.AddValue("scen", "Scenario", SCENARIO);
+     cmd.AddValue("ncount", "node count", ncount);
 
      cmd.Parse(argc, argv);
 
-    if (SCENARIO == 0)
-    {
-        NODE_COUNT_PER_TP = {4, 4, 3, 3, 2, 2, 1, 1};
-    }
-    else if(SCENARIO == 1)
-    {
-        NODE_COUNT_PER_TP = {6, 6, 4, 4, 2, 2, 1, 1}; // 운동 모니터링 시나리오
-    }
-    else if (SCENARIO == 2)
-    {
-        NODE_COUNT_PER_TP = {6, 6, 5, 5, 4, 4, 3, 3}; // 중환자 모니터링 시나리오
-    }
-
-    NODE_COUNT = std::accumulate(NODE_COUNT_PER_TP.begin(), NODE_COUNT_PER_TP.end(), 0) + 1;
+    NODE_COUNT = ncount + 1;
     for(uint32_t i = 0; i < NODE_COUNT + 1; i++)
     {
         retransmissionCount.push_back(std::vector<uint32_t>());
     }
+
+     NODE_COUNT_PER_TP = fillArray(ncount);
+
      Callback<void, SequenceNumber8> cb;
      ns3::RngSeedManager::SetSeed(42);
 
@@ -282,17 +291,13 @@ static NetDeviceContainer devices;
      uint16_t coordAddr = COORD_ADDR;
 
 
-     uint8_t priority = 0;
+     uint8_t priority = 7;
      uint8_t tpCount = 0;
      uint16_t address = coordAddr + 1;
      // Vector center(0, 0, 0);
      // double radius = 5;
      for (uint32_t i = 0; i < NODE_COUNT; i++)
      {
-         while (tpCount >= NODE_COUNT_PER_TP[priority])
-         {
-             priority += 1;
-         }
          //////////////////// MAKE NEW NETDEVICE ////////////////////
          Ptr<LrWpanNetDevice> dev = CreateObject<LrWpanNetDevice>();
 
@@ -313,6 +318,8 @@ static NetDeviceContainer devices;
          // }
          //
          // dev->GetPhy()->SetMobility(mob);
+
+         // dev->SetMac(CreateObject<LrWpanEapMac>());
 
          dev->SetChannel(channel);
          dev->SetNode(nodes.Get(i));
@@ -394,7 +401,8 @@ static NetDeviceContainer devices;
              params.m_sfrmOrd = BEACON_ORDER;
              Simulator::ScheduleWithContext(1,
                                             Seconds(0.01),
-                                            &LrWpanMac::MlmeStartRequest,
+                                            // &LrWpanMac::MlmeStartRequest,
+                                            &LrWpanMacBase::MlmeStartRequest,
                                             dev->GetMac(),
                                             params);
              cb = MakeCallback(&GenerateTraffic);
@@ -472,7 +480,7 @@ static NetDeviceContainer devices;
          if (tpCount == NODE_COUNT_PER_TP[priority])
          {
              std::cout << "TP " << int(priority) << ": " << (int) tpCount << std::endl;
-             priority++;
+             priority--;
              tpCount = 0;
          }
      }
@@ -524,14 +532,8 @@ static NetDeviceContainer devices;
                         break;
                 }
 
-                std::string strs;
-                if(SCENARIO == 0) strs = "low";
-                else if(SCENARIO == 1) strs = "medium";
-                else if(SCENARIO == 2) strs = "high";
-                else strs = "unknown";
-
                  filenameStream << str
-                                << "_scen" << SCENARIO
+                                << "_ncount" << ncount
                                 << "_pkt" << PACKET_SIZE
                                 << "_sim" << SIM_TIME
                                 << "_retx" << MAX_RETX
@@ -705,12 +707,13 @@ static NetDeviceContainer devices;
 
                  std::ostringstream filenameStream2;
                 filenameStream2 << str
-                              << "_scen" << SCENARIO
+                              << "_ncount" << ncount
                               << "_pkt" << PACKET_SIZE
                               << "_sim" << SIM_TIME
                               << "_retx" << MAX_RETX
                               << "_bo" << BEACON_ORDER << ".csv";
-                std::ofstream out2(filenameStream2.str());
+                std::ofstream ou(filenameStream2.str());
+                std::ostream& out2 = ou;
                  for(int i = 0; i < TP_COUNT; i++)
                  {
                      out2 << "TP" << i << ", ";
