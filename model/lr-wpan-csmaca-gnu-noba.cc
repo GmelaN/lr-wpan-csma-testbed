@@ -529,6 +529,7 @@ LrWpanCsmaCaGnuNoba::RandomBackoffDelay()
 
         if (randomBackoff >= timeLeftInCap)
         {
+            std::cout << (int) m_TP <<  ": PACKET DEFERRED" << std::endl;
             uint32_t usedBackoffs =
                 (double)(timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod;
             m_backoffCount -= usedBackoffs;
