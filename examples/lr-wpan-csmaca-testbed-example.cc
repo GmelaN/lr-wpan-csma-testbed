@@ -38,11 +38,11 @@
  #define PAN_ID 5
  #define COORD_ADDR 1
 
-int CSMA_CA = CSMA_CA_GNU_NOBA;
+int CSMA_CA = CSMA_CA_STANDARD;
 int PACKET_SIZE = 50;
-int MAX_RETX = 1;
+int MAX_RETX = 0;
 int SIM_TIME = 3600 + 30;
-int ncount = 2;
+int ncount = 9;
 
 int BEACON_ORDER = 4;
 
@@ -90,18 +90,22 @@ static NetDeviceContainer devices;
 std::vector<int> fillArray(int n)
 {
      std::vector<int> arr(8, 0); // 초기 배열: [0, 0, 0, 0, 0, 0, 0, 0]
-     int value = 1;         // 넣을 값 (1부터 시작)
-     int remaining = n;
+     // int value = 1;         // 넣을 값 (1부터 시작)
+     // int remaining = n;
+     //
+     // while (remaining > 0) {
+     //     for (int i = 7; i >= 0 && remaining > 0; --i) {
+     //         if (arr[i] == value - 1) {
+     //             arr[i] = value;
+     //             remaining--;
+     //         }
+     //     }
+     //     value++; // 한 사이클 끝나면 다음 값으로 증가
+     // }
+     arr[3] = 5;
+     arr[6] = 2;
+     arr[7] = 2;
 
-     while (remaining > 0) {
-         for (int i = 7; i >= 0 && remaining > 0; --i) {
-             if (arr[i] == value - 1) {
-                 arr[i] = value;
-                 remaining--;
-             }
-         }
-         value++; // 한 사이클 끝나면 다음 값으로 증가
-     }
      return arr;
  }
 
@@ -480,7 +484,8 @@ std::vector<int> fillArray(int n)
          if (tpCount == NODE_COUNT_PER_TP[priority])
          {
              std::cout << "TP " << int(priority) << ": " << (int) tpCount << std::endl;
-             priority--;
+             while (NODE_COUNT_PER_TP[--priority] == 0)
+                 ;
              tpCount = 0;
          }
      }
