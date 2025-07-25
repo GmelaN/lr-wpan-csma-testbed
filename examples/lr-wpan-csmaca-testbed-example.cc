@@ -38,7 +38,7 @@
  #define PAN_ID 5
  #define COORD_ADDR 1
 
-int CSMA_CA = CSMA_CA_STANDARD;
+int CSMA_CA = CSMA_CA_GNU_NOBA;
 int PACKET_SIZE = 50;
 int MAX_RETX = 0;
 int SIM_TIME = 3600 + 30;
@@ -46,8 +46,8 @@ int ncount = 9;
 
 int BEACON_ORDER = 4;
 
- using namespace ns3;
- using namespace ns3::lrwpan;
+using namespace ns3;
+using namespace ns3::lrwpan;
 
 #define MAX_NODE_COUNT_PER_TP 2
 static std::vector<int> NODE_COUNT_PER_TP;
@@ -102,9 +102,15 @@ std::vector<int> fillArray(int n)
      //     }
      //     value++; // 한 사이클 끝나면 다음 값으로 증가
      // }
-     arr[3] = 5;
-     arr[6] = 2;
-     arr[7] = 2;
+
+     arr[0] = 3;
+     arr[1] = 3;
+     arr[2] = 3;
+     arr[3] = 0;
+     // arr[4] = 0;
+     // arr[5] = 1;
+     // arr[6] = 1;
+     // arr[7] = 1;
 
      return arr;
  }
@@ -485,7 +491,7 @@ std::vector<int> fillArray(int n)
          {
              std::cout << "TP " << int(priority) << ": " << (int) tpCount << std::endl;
              while (NODE_COUNT_PER_TP[--priority] == 0)
-                 ;
+                ;
              tpCount = 0;
          }
      }
