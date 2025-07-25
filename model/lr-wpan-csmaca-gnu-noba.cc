@@ -50,8 +50,12 @@ uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 10}; /
 uint32_t LrWpanCsmaCaGnuNoba::SUCCESS_COUNT[TP_COUNT] = {0, }; // each TP
 std::deque<uint32_t> LrWpanCsmaCaGnuNoba::SUCCESS_WINDOW[TP_COUNT];
 
-uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {6, 6, 7, 7, 8, 8, 9, 10}; // each TP
-uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {10, 10, 10, 10, 10, 10, 10, 10}; // each TP
+// uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {6, 6, 7, 7, 8, 8, 9, 10}; // each TP
+// uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {1, 1, 1, 1, 1, 1, 1, 1}; // each TP
+// uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {4, 4, 4, 4, 4, 4, 4, 4}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::TP_M[TP_COUNT] = {0, 2, 4, 10, 0, 0, 0, 0}; // each TP
+// uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {10, 10, 10, 10, 10, 10, 10, 10}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::TP_K[TP_COUNT] = {5, 5, 5, 5, 5, 5, 5, 5}; // each TP
 
 
 TypeId
@@ -143,37 +147,47 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
 void
 LrWpanCsmaCaGnuNoba::UpdateCW()
 {
-    CalculateCWRanges();
-    // In context of before transmit first beacon, after adjust SW by aggregated statistics.
-    // update CW ranges by NOBA-like method, CW + SW.
+    // CalculateCWRanges();
+    // // In context of before transmit first beacon, after adjust SW by aggregated statistics.
+    // // update CW ranges by NOBA-like method, CW + SW.
+    //
+    // CW[TP_COUNT-1].first = 1;
+    // CW[TP_COUNT-1].second = std::min(CW[TP_COUNT-1].first + SW[TP_COUNT-1], WL[TP_COUNT-1]);
+    //
+    // for (int i = TP_COUNT - 2; i >= 0; i--) // Adjust lower TPs
+    // {
+    //     CW[i].first = CW[i + 1].second + 1;
+    //     CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
+    // }
+    //
+    // NS_LOG_DEBUG("CSMA/CA GNU-NOBA: MODIFIED SW, CW: \n"
+    //              << "SW: " << SW[0] << "\t"
+    //              << SW[1] << "\t"
+    //              << SW[2] << "\t"
+    //              << SW[3] << "\t"
+    //              << SW[4] << "\t"
+    //              << SW[5] << "\t"
+    //              << SW[6] << "\t"
+    //              << SW[7] << '\n'
+    //              << "CW: "
+    //              << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
+    //              << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
+    //              << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
+    //              << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
+    //              << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
+    //              << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
+    //              << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
+    //              << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n");
 
-    CW[TP_COUNT-1].first = 1;
-    CW[TP_COUNT-1].second = std::min(CW[TP_COUNT-1].first + SW[TP_COUNT-1], WL[TP_COUNT-1]);
+    CW[0].first = 4; CW[1].first = 4;
+    CW[2].first = 4;  CW[3].first = 4;
+    CW[4].first = 4;  CW[5].first = 4;
+    CW[6].first = 4;  CW[7].first = 4;
 
-    for (int i = TP_COUNT - 2; i >= 0; i--) // Adjust lower TPs
-    {
-        CW[i].first = CW[i + 1].second + 1;
-        CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
-    }
-
-    NS_LOG_DEBUG("CSMA/CA GNU-NOBA: MODIFIED SW, CW: \n"
-                 << "SW: " << SW[0] << "\t"
-                 << SW[1] << "\t"
-                 << SW[2] << "\t"
-                 << SW[3] << "\t"
-                 << SW[4] << "\t"
-                 << SW[5] << "\t"
-                 << SW[6] << "\t"
-                 << SW[7] << '\n'
-                 << "CW: "
-                 << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-                 << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-                 << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-                 << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-                 << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-                 << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-                 << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-                 << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n");
+    CW[0].second = 16; CW[1].second = 16;
+    CW[2].second = 16; CW[3].second = 16;
+    CW[4].second = 16; CW[5].second = 16;
+    CW[6].second = 16;  CW[7].second = 16;
 
     InitializeAggregations();
 }
@@ -229,14 +243,14 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
     {
         if (m_resultQueue[i]) {
             meetCount++;
-            if (meetCount == TP_M[m_TP]) {
+            if (meetCount == m_M) {
                 l = i;  // m번째 meet의 위치
                 break;
             }
         }
     }
 
-    if (meetCount < TP_M[m_TP]) // worst case.
+    if (meetCount < m_M) // worst case.
     {
         distBasedPriority = k + 1;
     }
@@ -246,14 +260,14 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
     }
 
     uint32_t failCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), false);
-    if (failCount > TP_K[m_TP] - TP_M[m_TP])
+    if (failCount > m_K - m_M)
     {
         NS_ASSERT(isFailure);
         // (m, k) rule violation detected
         m_csmaCaGnuNobaMKViolationTrace(m_TP);
         m_alpha = MIN_ALPHA;
         m_resultQueue.clear();
-        m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
+        m_resultQueue.insert(m_resultQueue.begin(), m_K, true);  // 전부 meet 처리
     }
     // else
     // {
@@ -749,6 +763,9 @@ LrWpanCsmaCaGnuNoba::GetBatteryLifeExtension()
 uint32_t
 LrWpanCsmaCaGnuNoba::BetaMappedRandom(const double alpha, const double beta, uint32_t x, uint32_t y)
 {
+    x = 1;
+    y = 64;
+
     Ptr<GammaRandomVariable> gammaAlpha = CreateObject<GammaRandomVariable>();
     Ptr<GammaRandomVariable> gammaBeta = CreateObject<GammaRandomVariable>();
 
