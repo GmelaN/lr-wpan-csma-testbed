@@ -419,8 +419,12 @@ LrWpanCsmaCaSwNoba::RandomBackoffDelay()
                 (double)(timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod;
             m_backoffCount -= usedBackoffs;
             NS_LOG_DEBUG("No time in CAP to complete backoff delay, deferring to the next CAP");
-            m_endCapEvent =
+            if (timeLeftInCap > Seconds(0))
+            {
+                m_endCapEvent =
                 Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaSwNoba::DeferCsmaTimeout, this);
+            }
+
         }
         else
         {

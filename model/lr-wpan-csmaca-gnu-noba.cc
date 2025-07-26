@@ -113,34 +113,28 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
         SUCCESS_WINDOW[tp].push_back(SUCCESS_COUNT[tp]);
         NS_ASSERT(SUCCESS_WINDOW[tp].size() == WINDOW_COUNT);
 
-        // TODO: 구체적인 구간 산정 필요
-        // and then control CW range by delta value.
-        // n^2 - n (n >= 2)
-        // std::cout << delta << std::endl;
-        if(delta > 10) // default: 1
+        if (delta < 0) // 5개 내외인 경우 조금씩 줄임
         {
-            SW[tp] = 1;
+            SW[tp] += 2;
+            if (SW[tp] >= 20)
+            {
+                SW[tp] = 20;
+            }
         }
-        else if(delta > 8) // n = 2
+        else if (delta > 0) // 못 보낸게 20개 이상인 경우 10씩 늘림
         {
-            SW[tp] = 2;
+            SW[tp] -= 1;
+            if (SW[tp] <= 1)
+            {
+                SW[tp] = 1;
+            }
         }
-        else if(delta > 4) // n = 3
+        else
         {
-            SW[tp] = 6;
+            continue;
         }
-        else if(delta > 2) // n = 4
-        {
-            SW[tp] = 12;
-        }
-        else if (delta != 0) // delta < 0, n = 5
-        {
-            SW[tp] = 20;
-        }
-        else // delta == 0
-        {
-            SW[tp] = 0;
-        }
+
+        // NS_LOG_UNCOND("TP" << tp << ": " << delta);
     }
 }
 
@@ -160,24 +154,15 @@ LrWpanCsmaCaGnuNoba::UpdateCW()
         CW[i].second = std::min(CW[i].first + SW[i], WL[i]);
     }
 
-    NS_LOG_DEBUG("CSMA/CA GNU-NOBA: MODIFIED SW, CW: \n"
-                 << "SW: " << SW[0] << "\t"
-                 << SW[1] << "\t"
-                 << SW[2] << "\t"
-                 << SW[3] << "\t"
-                 << SW[4] << "\t"
-                 << SW[5] << "\t"
-                 << SW[6] << "\t"
-                 << SW[7] << '\n'
-                 << "CW: "
-                 << "[0]: " << CW[0].first << " ~ " << CW[0].second << "\n"
-                 << "[1]: " << CW[1].first << " ~ " << CW[1].second << "\n"
-                 << "[2]: " << CW[2].first << " ~ " << CW[2].second << "\n"
-                 << "[3]: " << CW[3].first << " ~ " << CW[3].second << "\n"
-                 << "[4]: " << CW[4].first << " ~ " << CW[4].second << "\n"
-                 << "[5]: " << CW[5].first << " ~ " << CW[5].second << "\n"
-                 << "[6]: " << CW[6].first << " ~ " << CW[6].second << "\n"
-                 << "[7]: " << CW[7].first << " ~ " << CW[7].second << "\n");
+    // NS_LOG_UNCOND("CSMA/CA GNU-NOBA: MODIFIED SW, CW: \n"
+    //              << "SW: " << SW[0] << "\t"
+    //              << SW[1] << "\t"
+    //              << SW[2] << "\t"
+    //              << SW[3] << "\t"
+    //              << SW[4] << "\t"
+    //              << SW[5] << "\t"
+    //              << SW[6] << "\t"
+    //              << SW[7] << '\n');
 
     InitializeAggregations();
 }
@@ -522,13 +507,16 @@ LrWpanCsmaCaGnuNoba::RandomBackoffDelay()
 
         if (randomBackoff >= timeLeftInCap)
         {
-            std::cout << (int) m_TP <<  ": PACKET DEFERRED" << std::endl;
+            // std::cout << (int) m_TP <<  ": PACKET DEFERRED" << std::endl;
             uint32_t usedBackoffs =
                 (double)(timeLeftInCap.GetSeconds() * symbolRate) / lrwpan::aUnitBackoffPeriod;
             m_backoffCount -= usedBackoffs;
             NS_LOG_DEBUG("No time in CAP to complete backoff delay, deferring to the next CAP");
-            m_endCapEvent =
-                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaGnuNoba::DeferCsmaTimeout, this);
+            if (timeLeftInCap > Seconds(0))
+            {
+                m_endCapEvent =
+                    Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaGnuNoba::DeferCsmaTimeout, this);
+            }
         }
         else
         {

@@ -286,8 +286,6 @@ LrWpanCsmaCaStandard::RandomBackoffDelay()
                     Simulator::ScheduleNow(&LrWpanCsmaCaStandard::DeferCsmaTimeout, this);
                 return;
             }
-            m_endCapEvent =
-                Simulator::Schedule(timeLeftInCap, &LrWpanCsmaCaStandard::DeferCsmaTimeout, this);
         }
         else
         {
