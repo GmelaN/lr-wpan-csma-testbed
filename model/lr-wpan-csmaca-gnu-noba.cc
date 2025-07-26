@@ -133,9 +133,13 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
         {
             SW[tp] = 12;
         }
-        else // delta < 0, n = 5
+        else if (delta != 0) // delta < 0, n = 5
         {
             SW[tp] = 20;
+        }
+        else // delta == 0
+        {
+            SW[tp] = 0;
         }
     }
 }
@@ -222,31 +226,23 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
 {
     // modify alpha and beta according to DBP.
     uint32_t meetCount = 0;
-    int l = m_resultQueue.size();  // initial value: last index.
-    int k = m_resultQueue.size();
+    int l = -1;  // initial value: last index.
     int distBasedPriority = 0;
-    for (int i = k - 1; i >= 0; --i)
+    for (int i = m_resultQueue.size() - 1; i >= 0; --i)
     {
         if (m_resultQueue[i]) {
             meetCount++;
             if (meetCount == TP_M[m_TP]) {
-                l = i;  // m번째 meet의 위치
+                l = i+1;  // m번째 meet의 위치 (1-based index로 변환)
                 break;
             }
         }
     }
 
-    if (meetCount < TP_M[m_TP]) // worst case.
-    {
-        distBasedPriority = k + 1;
-    }
-    else
-    {
-        distBasedPriority = k - l + 1;
-    }
+    distBasedPriority = TP_K[m_TP] - l + 1;
 
     uint32_t failCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), false);
-    if (failCount > TP_K[m_TP] - TP_M[m_TP])
+    if (failCount > TP_K[m_TP] - TP_M[m_TP] || distBasedPriority < 1 || meetCount < TP_M[m_TP])
     {
         NS_ASSERT(isFailure);
         // (m, k) rule violation detected
@@ -255,36 +251,33 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
         m_resultQueue.clear();
         m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
     }
-    // else
-    // {
-    //     double alpha = 1.7 - (distBasedPriority * distBasedPriority - distBasedPriority) * 0.1;
-    //     m_alpha = std::max(MIN_ALPHA, std::min(alpha, MAX_ALPHA));
+
+    m_alpha = MAX_ALPHA - (MAX_ALPHA - MIN_ALPHA) * (distBasedPriority - 1) / (TP_K[m_TP] - 1);
+
+    // // 계산: 현재 DBP
+    // double decayFactor = (distBasedPriority * distBasedPriority - distBasedPriority);
+    //
+    // // 조절 강도 변화: DBP 클수록 감소 효과 줄고, 작을수록 크다
+    // double alphaDecay = decayFactor * 0.12;   // aggressive decay
+    // double alphaBase = 1.65;
+    //
+    // // soft clipping 증가
+    // double alpha = alphaBase - alphaDecay;
+    //
+    // // soft 상승 제어: 안정 시 천천히
+    // if (m_alpha < alpha) {
+    //     // 증가 시에는 매우 느리게
+    //     m_alpha = std::min(m_alpha + 0.02, alpha);
+    // } else {
+    //     // 감소는 바로 반영
+    //     m_alpha = alpha;
     // }
-
-    // 계산: 현재 DBP
-    double decayFactor = (distBasedPriority * distBasedPriority - distBasedPriority);
-
-    // 조절 강도 변화: DBP 클수록 감소 효과 줄고, 작을수록 크다
-    double alphaDecay = decayFactor * 0.12;   // aggressive decay
-    double alphaBase = 1.65;
-
-    // soft clipping 증가
-    double alpha = alphaBase - alphaDecay;
-
-    // soft 상승 제어: 안정 시 천천히
-    if (m_alpha < alpha) {
-        // 증가 시에는 매우 느리게
-        m_alpha = std::min(m_alpha + 0.02, alpha);
-    } else {
-        // 감소는 바로 반영
-        m_alpha = alpha;
-    }
-
-    // 범위 제한
-    m_alpha = std::max(MIN_ALPHA, std::min(m_alpha, MAX_ALPHA));
-
-
-
+    //
+    // // 범위 제한
+    // m_alpha = std::max(MIN_ALPHA, std::min(m_alpha, MAX_ALPHA));
+    //
+    //
+    // m_alpha = 1.1;
 }
 
 LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba(uint8_t priority)
