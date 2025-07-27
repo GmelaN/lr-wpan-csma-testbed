@@ -113,7 +113,7 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
         SUCCESS_WINDOW[tp].push_back(SUCCESS_COUNT[tp]);
         NS_ASSERT(SUCCESS_WINDOW[tp].size() == WINDOW_COUNT);
 
-        if (delta < 0) // 5개 내외인 경우 조금씩 줄임
+        if (delta < 0) // 줄어드는 경우 조금씩 늘림
         {
             SW[tp] += 2;
             if (SW[tp] >= 20)
@@ -121,7 +121,7 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
                 SW[tp] = 20;
             }
         }
-        else if (delta > 0) // 못 보낸게 20개 이상인 경우 10씩 늘림
+        else if (delta > 3) // 늘어나는 경우 조금씩 줄이
         {
             SW[tp] -= 1;
             if (SW[tp] <= 1)
@@ -134,7 +134,7 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
             continue;
         }
 
-        // NS_LOG_UNCOND("TP" << tp << ": " << delta);
+        NS_LOG_UNCOND("TP" << tp << ": " << delta);
     }
 }
 
