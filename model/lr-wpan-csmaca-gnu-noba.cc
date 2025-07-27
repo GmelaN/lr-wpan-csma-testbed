@@ -20,10 +20,6 @@
 #include <bitset>
 
 
-#define K 5
-
-#define ALPHA_INCREASE_STEP 0.2
-#define ALPHA_DECREASE_STEP 0.1
 #define MIN_ALPHA 0.8
 #define MAX_ALPHA 1.7
 
@@ -47,6 +43,7 @@ NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaGnuNoba);
 uint32_t LrWpanCsmaCaGnuNoba::SW[TP_COUNT]; // each TP
 std::pair<uint32_t, uint32_t> LrWpanCsmaCaGnuNoba::CW[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 10}; // each TP
+// uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {128, 112, 96, 80, 64, 48, 32, 16}; // each TP
 uint32_t LrWpanCsmaCaGnuNoba::SUCCESS_COUNT[TP_COUNT] = {0, }; // each TP
 std::deque<uint32_t> LrWpanCsmaCaGnuNoba::SUCCESS_WINDOW[TP_COUNT];
 
@@ -113,7 +110,15 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
         SUCCESS_WINDOW[tp].push_back(SUCCESS_COUNT[tp]);
         NS_ASSERT(SUCCESS_WINDOW[tp].size() == WINDOW_COUNT);
 
-        if (delta < 0) // 줄어드는 경우 조금씩 늘림
+        if (delta < -5) // 많이 줄어드는 경우 확 늘림
+        {
+            SW[tp] += 5;
+            if (SW[tp] >= 20)
+            {
+                SW[tp] = 20;
+            }
+        }
+        else if (delta < 0) // 줄어드는 경우 조금씩 늘림
         {
             SW[tp] += 2;
             if (SW[tp] >= 20)
@@ -179,6 +184,11 @@ LrWpanCsmaCaGnuNoba::AckTimeout()
     m_resultQueue.push_back(false);
     NS_ASSERT(m_resultQueue.size() == m_K);
 
+    if (m_alpha == MIN_ALPHA)
+    {
+        std::cout << "UP " << m_TP << " IN URGENT AND TX FAIL\n";
+    }
+
     ModifyAlpha(true);
 }
 
@@ -203,15 +213,24 @@ LrWpanCsmaCaGnuNoba::TransmissionSucceed()
     m_resultQueue.push_back(true);
     NS_ASSERT(m_resultQueue.size() == m_K);
 
+    
+    if (m_alpha == MIN_ALPHA)
+    {
+        std::cout << "UP " << m_TP << " IN URGENT AND TX SUCCESS\n";
+    }
+
+
     ModifyAlpha(false);
 }
 
 void
 LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
 {
+    // m_alpha = 1.1;
+    // return;
     // modify alpha and beta according to DBP.
     uint32_t meetCount = 0;
-    int l = -1;  // initial value: last index.
+    int l = -1;
     int distBasedPriority = 0;
     for (int i = m_resultQueue.size() - 1; i >= 0; --i)
     {
@@ -227,8 +246,13 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
     distBasedPriority = TP_K[m_TP] - l + 1;
 
     uint32_t failCount = std::count(m_resultQueue.begin(), m_resultQueue.end(), false);
+    if (distBasedPriority <= 2)
+    {
+        m_alpha = MIN_ALPHA;
+    }
     if (failCount > TP_K[m_TP] - TP_M[m_TP] || distBasedPriority < 1 || meetCount < TP_M[m_TP])
     {
+        // std::cout << "M K VIOLATION" << std::endl;
         NS_ASSERT(isFailure);
         // (m, k) rule violation detected
         m_csmaCaGnuNobaMKViolationTrace(m_TP);
@@ -237,7 +261,11 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
         m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
     }
 
-    m_alpha = MAX_ALPHA - (MAX_ALPHA - MIN_ALPHA) * (distBasedPriority - 1) / (TP_K[m_TP] - 1);
+    // m_alpha = MAX_ALPHA - (MAX_ALPHA - MIN_ALPHA) * (distBasedPriority - 1) / (TP_K[m_TP] - 1);
+    else
+    {
+        m_alpha = MAX_ALPHA;
+    }
 
     // // 계산: 현재 DBP
     // double decayFactor = (distBasedPriority * distBasedPriority - distBasedPriority);
@@ -252,17 +280,23 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
     // // soft 상승 제어: 안정 시 천천히
     // if (m_alpha < alpha) {
     //     // 증가 시에는 매우 느리게
-    //     m_alpha = std::min(m_alpha + 0.02, alpha);
+        // m_alpha = std::min(m_alpha + 0.02, alpha);
     // } else {
     //     // 감소는 바로 반영
-    //     m_alpha = alpha;
+        // m_alpha = alpha;
     // }
     //
     // // 범위 제한
     // m_alpha = std::max(MIN_ALPHA, std::min(m_alpha, MAX_ALPHA));
-    //
-    //
-    // m_alpha = 1.1;
+    if(m_TP == 7)
+    {
+        std::string s;
+        for(auto i = m_resultQueue.begin(); i < m_resultQueue.end(); i++)
+        {
+            s.append(std::to_string(*i) + " ");
+        }
+        // std::cout << "queue status: " << s << "\talpha: " << m_alpha << "\t" << "dbp: " << distBasedPriority << std::endl;    
+    }
 }
 
 LrWpanCsmaCaGnuNoba::LrWpanCsmaCaGnuNoba(uint8_t priority)
