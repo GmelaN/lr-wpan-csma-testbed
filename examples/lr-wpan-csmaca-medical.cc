@@ -38,11 +38,15 @@
  #define PAN_ID 5
  #define COORD_ADDR 1
 
+//  #define UNIFORM 1
+//  #define MONITORING 1
+ #define PATIENT_MONITORING 1
+
 int CSMA_CA = CSMA_CA_GNU_NOBA;
 int PACKET_SIZE = 50;
 int MAX_RETX = 1;
 int SIM_TIME = 3600 + 30;
-int ncount = 7;
+int ncount;
 
 int BEACON_ORDER = 4;
 
@@ -86,29 +90,48 @@ static NetDeviceContainer devices;
      );
  }
 
-std::vector<int> fillArray(int n)
+std::vector<int> fillArray()
 {
      std::vector<int> arr(8, 0); // 초기 배열: [0, 0, 0, 0, 0, 0, 0, 0]
-     // int value = 1;         // 넣을 값 (1부터 시작)
-     // int remaining = n;
-     //
-     // while (remaining > 0) {
-     //     for (int i = 7; i >= 0 && remaining > 0; --i) {
-     //         if (arr[i] == value - 1) {
-     //             arr[i] = value;
-     //             remaining--;
-     //         }
-     //     }
-     //     value++; // 한 사이클 끝나면 다음 값으로 증가
-     // }
-     arr[0] = 0;
-     arr[1] = 0;
-     arr[2] = 0;
-     arr[3] = 4;
-     arr[4] = 0;
-     arr[5] = 0;
+     #ifdef UNIFORM
+     // UNIFORM
+     arr[0] = 2;
+     arr[1] = 2;
+     arr[2] = 2;
+     arr[3] = 2;
+     arr[4] = 2;
+     arr[5] = 2;
      arr[6] = 2;
-     arr[7] = 1;
+     arr[7] = 2;
+    #endif
+
+    #ifdef MONITORING
+    // MONITORING
+    arr[0] = 1;
+    arr[1] = 1;
+    arr[2] = 3;
+    arr[3] = 2;
+    arr[4] = 1;
+    arr[5] = 0;
+    arr[6] = 1;
+    arr[7] = 0;
+    #endif
+
+    #ifdef PATIENT_MONITORING
+    // PATIENT MONITORING
+    arr[0] = 0;
+    arr[1] = 0;
+    arr[2] = 1;
+    arr[3] = 0;
+    arr[4] = 2;
+    arr[5] = 3;
+    arr[6] = 2;
+    arr[7] = 2;
+    #endif
+
+
+    // MONITORING
+
      return arr;
  }
 
@@ -252,6 +275,11 @@ std::vector<int> fillArray(int n)
             p
         );
      }
+    //  Simulator::Schedule(
+    //      Seconds(0.5),
+    //      &GenerateTraffic,
+    //      (SequenceNumber8) 0
+    //  );
  }
 
  int
@@ -268,13 +296,20 @@ std::vector<int> fillArray(int n)
 
      cmd.Parse(argc, argv);
 
+    NODE_COUNT_PER_TP = fillArray();
+
+    for(auto i = NODE_COUNT_PER_TP.begin(); i != NODE_COUNT_PER_TP.end(); i++)
+    {
+        ncount += (*i);
+    }
+
     NODE_COUNT = ncount + 1;
     for(uint32_t i = 0; i < NODE_COUNT + 1; i++)
     {
         retransmissionCount.push_back(std::vector<uint32_t>());
     }
 
-     NODE_COUNT_PER_TP = fillArray(ncount);
+
 
      Callback<void, SequenceNumber8> cb;
      ns3::RngSeedManager::SetSeed(42);

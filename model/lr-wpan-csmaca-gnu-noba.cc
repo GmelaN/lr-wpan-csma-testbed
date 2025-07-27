@@ -21,7 +21,7 @@
 
 
 #define MIN_ALPHA 0.8
-#define MAX_ALPHA 1.7
+#define MAX_ALPHA 1.4
 
 #define WINDOW_COUNT 5
 
@@ -42,7 +42,7 @@ NS_OBJECT_ENSURE_REGISTERED(LrWpanCsmaCaGnuNoba);
 
 uint32_t LrWpanCsmaCaGnuNoba::SW[TP_COUNT]; // each TP
 std::pair<uint32_t, uint32_t> LrWpanCsmaCaGnuNoba::CW[TP_COUNT]; // each TP
-uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 10}; // each TP
+uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {64, 56, 48, 40, 32, 24, 16, 8}; // each TP
 // uint32_t LrWpanCsmaCaGnuNoba::WL[TP_COUNT] = {128, 112, 96, 80, 64, 48, 32, 16}; // each TP
 uint32_t LrWpanCsmaCaGnuNoba::SUCCESS_COUNT[TP_COUNT] = {0, }; // each TP
 std::deque<uint32_t> LrWpanCsmaCaGnuNoba::SUCCESS_WINDOW[TP_COUNT];
@@ -184,10 +184,10 @@ LrWpanCsmaCaGnuNoba::AckTimeout()
     m_resultQueue.push_back(false);
     NS_ASSERT(m_resultQueue.size() == m_K);
 
-    if (m_alpha == MIN_ALPHA)
-    {
-        std::cout << "UP " << m_TP << " IN URGENT AND TX FAIL\n";
-    }
+    // if (m_alpha == MIN_ALPHA)
+    // {
+        // std::cout << "UP " << m_TP << " IN URGENT AND TX FAIL\n";
+    // }
 
     ModifyAlpha(true);
 }
@@ -214,10 +214,10 @@ LrWpanCsmaCaGnuNoba::TransmissionSucceed()
     NS_ASSERT(m_resultQueue.size() == m_K);
 
     
-    if (m_alpha == MIN_ALPHA)
-    {
-        std::cout << "UP " << m_TP << " IN URGENT AND TX SUCCESS\n";
-    }
+    // if (m_alpha == MIN_ALPHA)
+    // {
+    //     std::cout << "UP " << m_TP << " IN URGENT AND TX SUCCESS\n";
+    // }
 
 
     ModifyAlpha(false);
@@ -249,6 +249,8 @@ LrWpanCsmaCaGnuNoba::ModifyAlpha(bool isFailure)
     if (distBasedPriority <= 2)
     {
         m_alpha = MIN_ALPHA;
+        m_resultQueue.clear();
+        m_resultQueue.insert(m_resultQueue.begin(), TP_K[m_TP], true);  // 전부 meet 처리
     }
     if (failCount > TP_K[m_TP] - TP_M[m_TP] || distBasedPriority < 1 || meetCount < TP_M[m_TP])
     {
