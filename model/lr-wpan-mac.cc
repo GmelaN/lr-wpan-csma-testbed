@@ -14,11 +14,11 @@
 #include "lr-wpan-mac.h"
 
 #include "lr-wpan-constants.h"
-#include "lr-wpan-csmaca-gnu-noba.h"
 #include "lr-wpan-csmaca-noba.h"
 #include "lr-wpan-csmaca-standard.h"
 #include "lr-wpan-csmaca-sw-noba.h"
 #include "lr-wpan-csmaca-gnu-noba.h"
+#include "lr-wpan-csmaca-rl.h"
 #include "lr-wpan-csmaca.h"
 #include "lr-wpan-mac-header.h"
 #include "lr-wpan-mac-pl-headers.h"

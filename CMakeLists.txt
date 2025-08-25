@@ -21,6 +21,7 @@ build_lib(
     model/lr-wpan-csmaca-sw-noba.cc
     model/lr-wpan-csmaca-gnu-noba.cc
     model/lr-wpan-csmaca-standard.cc
+    model/lr-wpan-csmaca-rl.cc
     model/lr-wpan-csmaca-common.cc
     model/lr-wpan-delay-tag.cc
     model/lr-wpan-priority-tag.cc
@@ -48,6 +49,7 @@ build_lib(
     model/lr-wpan-csmaca-sw-noba.h
     model/lr-wpan-csmaca-gnu-noba.h
     model/lr-wpan-csmaca-standard.h
+    model/lr-wpan-csmaca-rl.h
     model/lr-wpan-csmaca-common.h
     model/lr-wpan-delay-tag.h
     model/lr-wpan-priority-tag.h

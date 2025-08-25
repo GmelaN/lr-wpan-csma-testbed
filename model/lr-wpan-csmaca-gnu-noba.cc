@@ -139,7 +139,7 @@ LrWpanCsmaCaGnuNoba::CalculateCWRanges()
             continue;
         }
 
-        NS_LOG_UNCOND("TP" << tp << ": " << delta);
+        // NS_LOG_UNCOND("TP" << tp << ": " << delta);
     }
 }
 

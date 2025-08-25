@@ -36,7 +36,7 @@ class LrWpanCsmaCaRl : public LrWpanCsmaCaCommon
   static std::pair<uint32_t, uint32_t> CW[TP_COUNT]; // each TP
   static uint32_t TP_K[TP_COUNT];
   static uint32_t TP_M[TP_COUNT];
-  static std::vector<double[3]> q_table[TP_COUNT]; // dec, keep, inc
+  static std::vector<std::array<double, 3>> q_table[TP_COUNT]; // dec, keep, inc
 
   public:
     /**

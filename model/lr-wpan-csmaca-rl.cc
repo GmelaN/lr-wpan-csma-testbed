@@ -48,7 +48,7 @@ std::pair<uint32_t, uint32_t> LrWpanCsmaCaRl::CW[TP_COUNT]; // each TP
 uint32_t LrWpanCsmaCaRl::TP_M[TP_COUNT] = {6, 6, 7, 7, 8, 8, 9, 10}; // each TP
 uint32_t LrWpanCsmaCaRl::TP_K[TP_COUNT] = {10, 10, 10, 10, 10, 10, 10, 10}; // each TP
 
-std::vector<double[3]> LrWpanCsmaCaRl::q_table[TP_COUNT];
+std::vector<std::array<double, 3>> LrWpanCsmaCaRl::q_table[TP_COUNT];
 
 TypeId
 LrWpanCsmaCaRl::GetTypeId()
@@ -379,6 +379,7 @@ LrWpanCsmaCaRl::TxSucceed()
 
     // update Q-table
     double reward = 1.0;
+    NS_ASSERT(m_backoffCount > 0);
     uint32_t old_state_index = m_backoffCount - CW[m_TP].first;
     auto& old_q_values = q_table[m_TP][old_state_index];
 
@@ -386,16 +387,16 @@ LrWpanCsmaCaRl::TxSucceed()
     double max_q_decrease = -std::numeric_limits<double>::infinity();
     if (old_state_index > 0) {
         auto& q_vals_decrease = q_table[m_TP][old_state_index - 1];
-        max_q_decrease = std::max_element(q_vals_decrease[0], q_vals_decrease[1], q_vals_decrease[2]);
+        max_q_decrease = *std::max_element(q_vals_decrease.begin(), q_vals_decrease.end());
     }
 
     auto& q_vals_keep = q_table[m_TP][old_state_index];
-    double max_q_keep = std::max_element(q_vals_keep[0], q_vals_keep[1], q_vals_keep[2]);
+    double max_q_keep = *std::max_element(q_vals_keep.begin(), q_vals_keep.end());
 
     double max_q_increase = -std::numeric_limits<double>::infinity();
     if (old_state_index + 1 < q_table[m_TP].size()) { 
         auto& q_vals_increase = q_table[m_TP][old_state_index + 1];
-        max_q_increase = std::max_element(q_vals_increase[0], q_vals_increase[1], q_vals_increase[2]);
+        max_q_increase = *std::max_element(q_vals_increase.begin(), q_vals_increase.end());
     }
 
     // choose the biggest q-value.
@@ -417,6 +418,7 @@ LrWpanCsmaCaRl::AckTimeout()
 
     // update Q-table
     double reward = -1.0;
+    NS_ASSERT(m_backoffCount > 0);
     uint32_t old_state_index = m_backoffCount - CW[m_TP].first;
     auto& old_q_values = q_table[m_TP][old_state_index];
 
@@ -424,16 +426,16 @@ LrWpanCsmaCaRl::AckTimeout()
     double max_q_decrease = -std::numeric_limits<double>::infinity();
     if (old_state_index > 0) {
         auto& q_vals_decrease = q_table[m_TP][old_state_index - 1];
-        max_q_decrease = std::max_element(q_vals_decrease[0], q_vals_decrease[1], q_vals_decrease[2]);
+        max_q_decrease = *std::max_element(q_vals_decrease.begin(), q_vals_decrease.end());
     }
 
     auto& q_vals_keep = q_table[m_TP][old_state_index];
-    double max_q_keep = std::max_element(q_vals_keep[0], q_vals_keep[1], q_vals_keep[2]);
+    double max_q_keep = *std::max_element(q_vals_keep.begin(), q_vals_keep.end());
 
     double max_q_increase = -std::numeric_limits<double>::infinity();
     if (old_state_index + 1 < q_table[m_TP].size()) { 
         auto& q_vals_increase = q_table[m_TP][old_state_index + 1];
-        max_q_increase = std::max_element(q_vals_increase[0], q_vals_increase[1], q_vals_increase[2]);
+        max_q_increase = *std::max_element(q_vals_increase.begin(), q_vals_increase.end());
     }
 
     // choose the biggest q-value.
@@ -512,7 +514,7 @@ LrWpanCsmaCaRl::CanProceed()
     //
     //       note: phyCCADuration & 950Mhz band PHYs are
     //             not currently implemented in ns-3.
-    ccaSymbols += 8 * m_backoffCount;
+    ccaSymbols += 8 * m_backoff;
 
     // The MAC sublayer shall proceed if the remaining CSMA-CA algorithm steps
     // can be completed before the end of the CAP.
@@ -590,8 +592,8 @@ LrWpanCsmaCaRl::PlmeCcaConfirm(PhyEnumeration status)
         if (status == IEEE_802_15_4_PHY_IDLE)
         {
             // channel is idle
-            m_backoffCount--;
-            if (m_backoffCount == 0)
+            m_backoff--;
+            if (m_backoff == 0)
             {
                 // inform MAC channel is idle
                 if (!m_lrWpanMacStateCallback.IsNull())
@@ -602,7 +604,7 @@ LrWpanCsmaCaRl::PlmeCcaConfirm(PhyEnumeration status)
             }
             else
             {
-                NS_LOG_LOGIC("Perform CCA again, backoff count = " << m_backoffCount);
+                NS_LOG_LOGIC("Perform CCA again, backoff count = " << m_backoff);
                 m_requestCcaEvent = Simulator::ScheduleNow(&LrWpanCsmaCaRl::RequestCCA,
                                                             this); // Perform CCA again
             }
@@ -611,7 +613,7 @@ LrWpanCsmaCaRl::PlmeCcaConfirm(PhyEnumeration status)
         {
             // m_csmaCaRlCollisionTrace(m_TP, m_collisions);
             // freeze backoff counter and retry
-            NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoffCount);
+            NS_LOG_DEBUG("Perform another backoff; freeze backoff count: " << m_backoff);
             m_freezeBackoff = true;
             m_randomBackoffEvent =
                 Simulator::ScheduleNow(&LrWpanCsmaCaRl::RandomBackoffDelay, this);
