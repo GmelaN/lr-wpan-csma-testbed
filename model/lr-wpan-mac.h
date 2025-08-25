@@ -53,7 +53,8 @@ enum CsmaOption
     CSMA_NOBA = 1,     // CSMA/CA NOBA
     CSMA_SW_NOBA = 2,  // CSMA/CA SW-NOBA
     CSMA_STANDARD = 3,  // IEEE 802.15.6 CSMA/CA
-    CSMA_GNU_NOBA = 4  // CSMA/CA SWPR-NOBA
+    CSMA_GNU_NOBA = 4,  // CSMA/CA GNU-NOBA
+    CSMA_RL = 5  // CSMA/CA RL-CWA
 };
 
 /**

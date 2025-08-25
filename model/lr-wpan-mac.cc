@@ -2516,6 +2516,11 @@ LrWpanMac::PdDataIndication(uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                             Ptr<LrWpanCsmaCaStandard> csma = DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa);
                             csma->TxSucceed();
                         }
+                        if (m_csmaOption == CSMA_RL)
+                        {
+                            Ptr<LrWpanCsmaCaRl> csma = DynamicCast<LrWpanCsmaCaRl>(m_csmaCa);
+                            csma->TxSucceed();
+                        }
 
                         // TODO: check  if the IFS is the correct size after ACK.
                         Time ifsWaitTime = Seconds((double)GetIfsSize() / symbolRate);
@@ -2778,6 +2783,11 @@ LrWpanMac::AckWaitTimeout()
         else if(m_csmaOption == CSMA_STANDARD) {
             // NO ACK
             DynamicCast<LrWpanCsmaCaStandard>(m_csmaCa)->AckTimeout();
+        }
+        else if (m_csmaOption == CSMA_RL)
+        {
+            Ptr<LrWpanCsmaCaRl> csma = DynamicCast<LrWpanCsmaCaRl>(m_csmaCa);
+            csma->AckTimeout();
         }
     }
     else
